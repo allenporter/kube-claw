@@ -15,16 +15,17 @@ This document outlines the immediate implementation strategy for **KubeClaw**, f
 Create "Fake" versions of the core interfaces to allow for local, interactive development.
 - **`FakeCommunicator`**:
     - Initially use a simple `input()` loop for CLI interaction.
-    - Support a predefined script of messages for automated testing.
+    - Support canned responses or scripts where responses can be mapped to specific inputs (e.g., regex-based triggers).
 - **`FakeJobScheduler`**:
     - Manage "jobs" as local subprocesses or in-memory state.
-    - **Persistence**: Use a local `jobs.json` file to simulate recovery across agent restarts.
+    - **Persistence**: All fakes are currently in-memory. Design for future transition to Kubernetes label-based discovery for production recovery.
 
 ### M2: Core Orchestration (The "Claw" Loop)
 Develop the primary logic in `ClawAgent` to bridge communication and scheduling.
+- **Configuration-driven**: Use `config.yaml` to define driver types (fake vs. real), channel restrictions, and job parameters.
 - Implement message parsing and task extraction.
 - Manage job lifecycles: `PENDING` -> `RUNNING` -> `COMPLETED`/`FAILED`.
-- Implement **Failure Recovery**: On startup, the agent must scan for existing jobs (via `jobs.json` or Kubernetes labels) and reconnect.
+- Implement **Failure Recovery**: On startup, the agent must scan for existing jobs (via Kubernetes labels in production) and reconnect.
 
 ### M3: Discord Driver Verification
 Transition from mock to real communication.
