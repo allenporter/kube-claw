@@ -23,3 +23,9 @@ Source = "https://github.com/allenporter/kube_claw"
 
 [tool.setuptools.packages.find]
 include = ["kube_claw*"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "strict"
+filterwarnings = [
+    "ignore:'asyncio.DefaultEventLoopPolicy' is deprecated:DeprecationWarning:aioconsole.events",
+]
