@@ -1,6 +1,5 @@
 -e .
 coverage==7.6.8
-mypy==1.13.0
 pdoc==15.0.4
 pip==24.3.1
 pre-commit==4.0.1
@@ -12,3 +11,4 @@ ruff==0.8.1
 ty==0.0.18
 discord-py==2.6.4
 kubernetes==35.0.0
+aioconsole>=0.8.2
