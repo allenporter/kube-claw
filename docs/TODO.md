@@ -14,4 +14,5 @@
 ## Tooling & Infrastructure
 - [ ] Fix `adk-cli` built-in skill packaging.
 - [ ] Fix `adk-cli` bug where if a subprocess is killed the whole program crashes. maybe need an option to handle timeouts or canceling command in flight.
+- [ ] Add `adk-cli` support for switching models in the middle of conversation
 - [ ] Add `code-explorer` skill if missing.
