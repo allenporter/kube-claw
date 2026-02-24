@@ -41,7 +41,9 @@ class DiscordCommunicator(Communicator):
             # For cases where the channel is not yet in the cache, fetch it.
             channel = await self.client.fetch_channel(int(channel_id))
 
-        if hasattr(channel, "send"):
+        if isinstance(
+            channel, (discord.TextChannel, discord.Thread, discord.VoiceChannel)
+        ):
             await channel.send(content)
         else:
             raise ValueError(f"Channel {channel_id} does not support sending messages.")

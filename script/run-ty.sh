@@ -12,4 +12,4 @@ for venv in venv .venv .; do
   fi
 done
 
-mypy ${my_path}
+ty check ${my_path}
