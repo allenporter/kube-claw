@@ -23,7 +23,7 @@ Claw Core provides the foundational identity and system instructions for the Nan
 
 ### Prerequisites
 
-- Python 3.12+
+- Python 3.14+
 - `uv` (recommended for dependency management)
 - Access to a Kubernetes cluster (for full functionality)
 
