@@ -7,3 +7,8 @@ pre-commit==4.0.1
 pytest-cov==6.0.0
 pytest==8.4.1
 ruff==0.8.1
+
+# Pinned development versions
+ty==0.0.18
+discord-py==2.6.4
+kubernetes==35.0.0
