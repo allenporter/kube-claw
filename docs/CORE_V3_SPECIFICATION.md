@@ -47,14 +47,33 @@ This document defines the "Gold Standard" for a tool-capable LLM orchestrator, s
 
 ## 3. Key Functional Innovations
 
-### I. The "Lane" Handshake
-When an intent enters a lane, the controller performs a **Session Handshake**:
-1.  **Resolve Workspace**: Determine the correct project path on the host.
-2.  **Verify Memory**: Load/Prune the session's `.claude/` state.
-3.  **Spawn/Wake Sandbox**: Initialize the backend with the correct mounts.
-4.  **Inject Identity**: Ensure the agent knows its user/context (via system prompt).
+### I. The "Lane" Handshake (Identity & Auth)
+When an intent enters a lane, the controller performs a **Session Handshake** to resolve identity and inject capabilities:
 
-### II. Proactive Autonomy (The Pulse)
+1.  **Resolve Actor Identity**:
+    *   Map the inbound protocol ID (e.g., Discord Snowflake `12345`) to a **Claw Identity**.
+    *   **Scenario (Discord)**: User A in `#project-alpha` maps to `Identity: Dev-A` with `Workspace: /repo/alpha`.
+2.  **Authorize Capabilities**:
+    *   Fetch the **Auth Profile** associated with the Identity.
+    *   **Scenario (GitHub)**: `Identity: Dev-A` has an `OAuthCredential` for GitHub. This token is injected into the sandbox environment variables (`GITHUB_TOKEN`).
+3.  **Spawn/Wake Sandbox**:
+    *   Initialize the backend with the correct mounts (Project Alpha).
+    *   Inject the `Auth Profile` credentials into the sandbox shell environment.
+4.  **Contextual Memory**:
+    *   Load the `CLAUDE.md` from the project root and the session-specific history from `.claude/`.
+
+### II. Multi-Channel Identity Mapping
+To handle a user working across multiple projects/channels, the Core uses a **Binding Table**:
+
+| Channel | Channel ID | User ID | Agent ID | Workspace | Auth Profile |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| Discord | `#alpha-dev` | `Dev-A` | `Alpha-Bot` | `/repos/alpha` | `github-token-A` |
+| Discord | `#beta-dev` | `Dev-A` | `Beta-Bot` | `/repos/beta` | `github-token-A` |
+| WhatsApp| `Personal` | `Dev-A` | `Personal-Bot`| `/repos/home` | `personal-key` |
+
+*   **Key Insight**: A single user (`Dev-A`) can have multiple **Agent Personalities** and **Workspaces** depending on *where* they are talking to the Core. The `Auth Profile` (credentials) follows the user, while the `Workspace` follows the channel/context.
+
+### III. Proactive Autonomy (The Pulse)
 A background scheduler (Cron) that can inject intents into any lane.
 *   **Example**: "Every Monday at 9 AM, run a `morning-briefing` intent in the `session:team-alpha` lane."
 
