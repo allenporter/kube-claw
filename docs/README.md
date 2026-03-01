@@ -17,15 +17,16 @@ Analyses of existing systems and foundational concepts.
 *   [Workspace Isolation](./research/WORKSPACE_ISOLATION.md): Deep dive into persistent vs. transient environments.
 
 ### [📂 3. Design](./design/)
-The technical specifications and architectural blueprints for the current version.
-*   [Core v3 Specification](./design/CORE_V3_SPECIFICATION.md): The unified system spec.
-*   [Architecture Overview](./design/CLAW_CORE_ARCHITECTURE.md): High-level structural diagrams.
-*   [Worker-Host Interface](./design/worker-host-interface.md): Communication protocols and transport layers.
-*   [Architectural Questions](./design/ARCHITECTURAL_QUESTIONS.md): Pending design decisions and open research.
+Technical specifications and architectural blueprints for the current version.
+*   [**v3 Specification (Core)**](./design/v3-specification/)
+    *   [High-Level Spec](./design/v3-specification/01-high-level-spec.md)
+    *   [Architecture Overview](./design/v3-specification/02-architecture-overview.md)
+    *   [Worker-Host RPC](./design/v3-specification/03-worker-host-rpc.md)
+    *   [Open Questions](./design/v3-specification/04-open-questions.md)
 
 ### [📂 4. Decisions](./decisions/)
-Log of ADRs (Architectural Decision Records) and finalized design pivots.
-*   *Pending: ADR-001 - Adoption of A2A Protocol.*
+Formal Architectural Decision Records (ADRs) and finalized pivots.
+*   [ADR-001: Adoption of A2A Protocol](./decisions/ADR-001-A2A-Protocol.md)
 
 ### [📂 Archive](./archive/)
 Obsolete plans, historical notes, and old task lists.
