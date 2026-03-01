@@ -2,6 +2,9 @@
 
 This document summarizes the research into the existing AI agent ecosystems and how they inform the design of **KubeClaw (Claw Core)**.
 
+## Detailed Architectural Research
+For a deeper dive into the core loop implementations, IPC strategies, and agent session management, see [Deep Research: Claw Core Architectures](deep-research.md).
+
 ## Comparison Matrix
 
 | Feature | OpenClaw | NanoClaw | **KubeClaw (Claw Core)** |
