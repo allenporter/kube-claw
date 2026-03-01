@@ -13,7 +13,8 @@ Scenarios and user stories that define the behavior and goals of the system.
 Analyses of existing systems and foundational concepts.
 *   [A2A Protocol Survey](./research/A2A_SURVEY_SUMMARY.md): Deep dive into the Agent-to-Agent protocol.
 *   [Legacy Design Survey](./research/claw_design_survey.md): Learnings from the v1 prototype.
-*   [NanoClaw Research](./research/deep-research.md): Just-in-Time bootstrapping and isolation models.
+*   [Claw Core Architectures](./research/deep-research.md): Comparison of OpenClaw and NanoClaw models.
+*   [Workspace Isolation](./research/WORKSPACE_ISOLATION.md): Deep dive into persistent vs. transient environments.
 
 ### [📂 3. Design](./design/)
 The technical specifications and architectural blueprints for the current version.
