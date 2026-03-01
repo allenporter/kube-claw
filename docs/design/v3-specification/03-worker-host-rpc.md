@@ -64,14 +64,25 @@ Streaming thoughts or tokens back to the user channel.
 
 #### `tool.call` (Request)
 Request to execute a tool. The host processes this and returns the result.
+
+**Note on Tool Hydration:**
+Host-proxied tools (e.g., `send_slack_message`, `stripe.create_customer`) use **Implicit Context**.
+- The Worker does NOT send Auth Tokens.
+- The Worker can use `channel: "current"` or `repo: "current"` as magic values.
+- The Host resolves magic values by looking up the `laneId` in the **Binding Table** to find the specific `ChannelID` or `RepoURL` associated with the active session.
+- The Host then "hydrates" the request by injecting the correct tokens from the `AuthProfile` before execution.
+
 ```json
 {
   "jsonrpc": "2.0",
   "method": "tool.call",
   "id": "call_abc",
   "params": {
-    "tool": "bash",
-    "arguments": {"command": "ls -R"},
+    "tool": "send_slack_message",
+    "arguments": {
+      "text": "Task complete!",
+      "channel": "current"
+    },
     "require_approval": false
   }
 }

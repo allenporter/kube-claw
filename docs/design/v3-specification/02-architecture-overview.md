@@ -8,35 +8,35 @@ This document outlines the foundational principles and architectural components 
 
 ```mermaid
 graph TD
-    subgraph "External Channels (The Reachability Layer)"
+    subgraph "External Channels"
         WA[WhatsApp]
         DS[Discord]
-        EM[Email/Other]
+        EM[Email]
     end
 
-    subgraph "Claw Core (The Host Process)"
+    subgraph "Claw Host (Control Plane)"
         Gateway[Inbound Gateway]
-        Queue[Stateful Sequencer/Queue]
-        Runtime[Agent Runtime]
-        DB[(SQLite / Persistence)]
+        Runtime[Agent Runtime / Orchestrator]
+        DB[(Binding Table / SQLite)]
+        ProxiedTools[Proxied Tools: Slack / Stripe]
     end
 
-    subgraph "The Sandbox (The Execution Layer)"
-        Container[Docker/Podman Container]
-        Tools[Bash / Filesystem / Browser]
-        Workspace[Project Files / CLAUDE.md]
+    subgraph "The Sandbox (Data Plane)"
+        Container[Agent Worker Container]
+        DirectTools[Direct Tools: Bash / Git / CLI]
+        Workspace[PVC: Project Files / CLAUDE.md]
     end
 
     %% Flow
-    WA & DS & EM -->|Trigger Detected| Gateway
-    Gateway -->|Store/Retrieve History| DB
-    Gateway -->|Enqueue Task| Queue
-    Queue -->|Initialize Context| Runtime
-    Runtime -->|Load Memory| Workspace
-    Runtime -->|Manage Loop| Container
-    Container <-->|Execute Tools| Tools
-    Tools <-->|Modify| Workspace
-    Runtime -.->|Stream Status| WA & DS & EM
+    WA & DS & EM -->|Trigger| Gateway
+    Gateway -->|Resolve Identity| DB
+    Gateway -->|Handshake| Runtime
+    Runtime -->|Mount PVC / Inject Direct Creds| Container
+    Container <-->|Local Exec| DirectTools
+    Container <-->|RPC / Hydration| Runtime
+    Runtime -->|API Calls| ProxiedTools
+    DirectTools <-->|Modify| Workspace
+    Runtime -.->|Stream| WA & DS & EM
 ```
 
 ## 2. Core Principles
@@ -83,6 +83,7 @@ The orchestrator of the "Thought Loop."
     *   **Prompt Assembly**: Dynamically build the system prompt by merging Global/Local memory files (`CLAUDE.md`) with the current conversation.
     *   **Streaming IPC**: Handle the delta-stream from the LLM and route it to the user in real-time.
     *   **Tool Dispatcher**: Intercept "tool_use" calls from the LLM, validate permissions, and route them to the Sandbox.
+    *   **Identity & Auth Hydration**: Intercept "host-proxied" tool calls (e.g., Slack, GitHub) and inject the user's secure tokens and target channel IDs before execution. This ensures the Sandbox remains credential-free.
 
 ### C. The Execution Sandbox (The Hand)
 The isolated environment where the work happens.

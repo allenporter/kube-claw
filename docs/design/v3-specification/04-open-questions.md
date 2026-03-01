@@ -19,11 +19,14 @@ These questions pertain to the interface between the **Host** (Gateway) and the 
 7.  **Persistence of Tracking**: Should the `active_jobs` tracking be moved to a persistent store (e.g., SQLite/Redis)? This ensures that if the Gateway crashes, it can resume monitoring and notifying for jobs that were already running.
 8.  **Sandbox "Call Home"**: Do you want the Sandbox container itself to push updates (e.g., via a webhook or IPC socket back to the Gateway) to provide more granular "In-Progress" feedback (like tool usage or partial logs)?
 
-## 3. Identity & State
+## 3. Identity, Secrets & Networking
 9.  **Multi-Project Context**: How should the system handle a user switching projects mid-conversation? Should the "Binding Table" be strictly one-to-one per channel, or should the agent be able to "checkout" different workspaces dynamically?
-10. **Auth Injection**: What is the preferred security model for injecting secrets into the transient Pods? (e.g., K8s Secrets, Vault, or direct Environment Variable injection during the handshake).
+10. **Auth Injection (The Hydration Model)**: Should we favor **Direct Injection** (Env Vars) for performance or **Host Proxying** (RPC) for high-security secrets?
+    *   *Recommendation*: Hybrid. CLI-heavy tools (Git/GH) get Direct Injection. API-heavy/High-risk tools (Stripe/Vault) are Host-Proxied.
+11. **Network Namespace Isolation**: For a "Hacker Assistant," should the sandbox have access to the public internet by default, or should we use a **Whitelisted Proxy** on the Host to log and audit all outbound research/scanning traffic?
+12. **Browser Isolation**: Should the sandbox run a local headless browser (heavy) or request a **Browser-as-a-Service** RPC call to the Host (lightweight but complex state)?
 
 ## 4. Agent-to-Agent (A2A) Protocol
-11. **Cross-Agent Collaboration**: How can Claw agents communicate with other specialized agents (e.g., a "Security Agent" or a "Cloud Provisioning Agent")?
-12. **A2A Integration**: Is the [A2A Protocol](https://a2a-protocol.org/) a suitable standard for Claw?
+13. **Cross-Agent Collaboration**: How can Claw agents communicate with other specialized agents (e.g., a "Security Agent" or a "Cloud Provisioning Agent")?
+14. **A2A Integration**: Is the [A2A Protocol](https://a2a-protocol.org/) a suitable standard for Claw?
     *   *Research Task*: Evaluate `a2a-python` in the `/workspaces/A2A` directory for suitability.

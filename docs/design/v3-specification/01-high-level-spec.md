@@ -55,7 +55,8 @@ When an intent enters a lane, the controller performs a **Session Handshake** to
     *   **Scenario (Discord)**: User A in `#project-alpha` maps to `Identity: Dev-A` with `Workspace: /repo/alpha`.
 2.  **Authorize Capabilities**:
     *   Fetch the **Auth Profile** associated with the Identity.
-    *   **Scenario (GitHub)**: `Identity: Dev-A` has an `OAuthCredential` for GitHub. This token is injected into the sandbox environment variables (`GITHUB_TOKEN`).
+    *   **Direct Credentials**: For CLI tools (e.g., GitHub `gh`), inject scoped tokens (e.g., `GITHUB_TOKEN`) into sandbox environment variables.
+    *   **Proxied Capabilities**: For API-based tools (e.g., Slack, Stripe), keep tokens on the Host. The Host will "hydrate" these calls via RPC during execution.
 3.  **Spawn/Wake Sandbox**:
     *   Initialize the backend with the correct mounts (Project Alpha).
     *   Inject the `Auth Profile` credentials into the sandbox shell environment.
