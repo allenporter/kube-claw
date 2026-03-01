@@ -17,7 +17,6 @@ Use this implementation for:
 - Local development without a database or K8s.
 """
 
-from typing import Dict, Tuple
 from kube_claw.core_v3.interfaces.binding_table import BindingTable, WorkspaceContext
 
 
@@ -26,9 +25,9 @@ class InMemoryBindingTable(BindingTable):
     A simple in-memory implementation of the BindingTable for testing.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         # Key: (protocol, channel_id, author_id)
-        self._table: Dict[Tuple[str, str, str], WorkspaceContext] = {}
+        self._table: dict[tuple[str, str, str], WorkspaceContext] = {}
 
     async def resolve_workspace(
         self, protocol: str, channel_id: str, author_id: str

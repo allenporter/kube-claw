@@ -1,6 +1,6 @@
 import asyncio
 import uuid
-from typing import Any, Dict
+from typing import Any
 from kube_claw.v1_legacy.core.base import JobScheduler
 
 
@@ -10,13 +10,13 @@ class FakeJobScheduler(JobScheduler):
     Simulates job lifecycles (pending -> running -> completed) using background tasks.
     """
 
-    def __init__(self, transition_delay: float = 2.0):
+    def __init__(self, transition_delay: float = 2.0) -> None:
         # job_id -> {"status": str, "task": str, "context": dict, "metadata": dict}
-        self._jobs: Dict[str, Dict[str, Any]] = {}
+        self._jobs: dict[str, dict[str, Any]] = {}
         self._lock = asyncio.Lock()
         self.transition_delay = transition_delay
 
-    async def schedule_job(self, task: str, context: Dict[str, Any]) -> str:
+    async def schedule_job(self, task: str, context: dict[str, Any]) -> str:
         """Schedules a fake job and kicks off a transition simulation."""
         job_id = f"fake-{uuid.uuid4().hex[:8]}"
 
@@ -60,7 +60,7 @@ class FakeJobScheduler(JobScheduler):
             if self._jobs[job_id]["status"] == "running":
                 self._jobs[job_id]["status"] = "completed"
 
-    async def get_all_jobs(self) -> Dict[str, Dict[str, Any]]:
+    async def get_all_jobs(self) -> dict[str, dict[str, Any]]:
         """Utility for recovery/discovery simulation."""
         async with self._lock:
             return self._jobs.copy()

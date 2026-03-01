@@ -28,4 +28,14 @@ Historical notes and obsolete plans.
 
 ---
 
+## 🛠️ Coding Preferences
+
+This project targets **Python 3.14+**. We prefer modern Pythonic syntax:
+- **Type Hints**: Use `| None` instead of `Optional`. Use `dict` and `list` instead of `Dict` and `List`.
+- **Return Types**: Explicitly annotate methods that return nothing with `-> None`.
+- **Asynchronous Programming**: Use `asyncio` for I/O bound tasks.
+- **Clarity over Cleverness**: Keep logic simple and well-documented.
+
+---
+
 **Note to Agents:** Always check the `docs/README.md` for a more detailed map of available documentation.

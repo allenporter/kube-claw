@@ -7,7 +7,7 @@ from kube_claw.v1_legacy.core.base import Communicator, Message
 class FakeMessage(Message):
     """Simple implementation of the Message protocol for the CLI."""
 
-    def __init__(self, content: str):
+    def __init__(self, content: str) -> None:
         self.content = content
         self.author_id = "local-user"
         self.channel_id = "cli-session"
@@ -20,7 +20,7 @@ class FakeCommunicator(Communicator):
     Uses aioconsole to ensure the input loop doesn't block the asyncio event loop.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.callback: Callable[[Message], Any] | None = None
         self._canned_responses = {
             "hello": "Hi there! I'm the KubeClaw fake agent.",

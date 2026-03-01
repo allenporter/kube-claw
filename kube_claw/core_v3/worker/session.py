@@ -1,6 +1,6 @@
 import logging
 import asyncio
-from typing import Dict, Any, Optional
+from typing import Any
 from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
@@ -12,8 +12,8 @@ class SessionState:
 
     session_id: str
     workspace_path: str
-    identity: Dict[str, Any]
-    llm_config: Dict[str, Any]
+    identity: dict[str, Any]
+    llm_config: dict[str, Any]
     active: bool = False
 
 
@@ -23,11 +23,11 @@ class SessionManager:
     Maintains the state of the worker between turns.
     """
 
-    def __init__(self):
-        self._current_session: Optional[SessionState] = None
+    def __init__(self) -> None:
+        self._current_session: SessionState | None = None
         self._lock = asyncio.Lock()
 
-    async def bootstrap(self, config: Dict[str, Any]):
+    async def bootstrap(self, config: dict[str, Any]) -> None:
         """
         JIT Config via A2A Handshake.
         Receives identity, workspace, and LLM configuration.
@@ -46,7 +46,7 @@ class SessionManager:
             # Here we would initialize ADK or update env vars.
             self._apply_env_overrides()
 
-    async def soft_reset(self):
+    async def soft_reset(self) -> None:
         """
         Clears state between turns to ensure 'Warm Lane' stability.
         Resets environment variables, clears temp buffers, but keeps the process alive.
@@ -60,7 +60,7 @@ class SessionManager:
                 self._current_session.active = False
             self._current_session = None
 
-    def _apply_env_overrides(self):
+    def _apply_env_overrides(self) -> None:
         """Applies configuration to the environment."""
         if not self._current_session:
             return
@@ -75,5 +75,5 @@ class SessionManager:
         return self._current_session is not None and self._current_session.active
 
     @property
-    def config(self) -> Optional[SessionState]:
+    def config(self) -> SessionState | None:
         return self._current_session

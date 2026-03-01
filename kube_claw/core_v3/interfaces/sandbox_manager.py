@@ -20,7 +20,7 @@ implementation.
 """
 
 from abc import ABC, abstractmethod
-from typing import Optional, Dict, Any, List
+from typing import Any
 from pydantic import BaseModel, Field
 
 
@@ -31,8 +31,8 @@ class SandboxStatus(BaseModel):
 
     is_running: bool
     last_known_status: str
-    connection_endpoint: Optional[str] = None  # UDS path or TCP address
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    connection_endpoint: str | None = None  # UDS path or TCP address
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class SandboxManager(ABC):
@@ -42,7 +42,7 @@ class SandboxManager(ABC):
 
     @abstractmethod
     async def provision(
-        self, workspace_id: str, context: Dict[str, Any]
+        self, workspace_id: str, context: dict[str, Any]
     ) -> SandboxStatus:
         """
         Creates or updates a sandbox/lane for a given workspace.
@@ -64,7 +64,7 @@ class SandboxManager(ABC):
         pass
 
     @abstractmethod
-    async def list_active_sandboxes(self) -> List[str]:
+    async def list_active_sandboxes(self) -> list[str]:
         """
         Returns a list of all workspace IDs with active sandboxes.
         """

@@ -4,11 +4,13 @@ import json
 import shutil
 import tempfile
 from pathlib import Path
+from typing import Generator
+
 from kube_claw.core_v3.infrastructure.local_sandbox import LocalSandboxManager
 
 
 @pytest.fixture
-def temp_rpc_dir():
+def temp_rpc_dir() -> Generator[str, None, None]:
     """Provides a temporary directory for UDS sockets."""
     tmp_dir = tempfile.mkdtemp(prefix="claw_rpc_test_")
     yield tmp_dir
@@ -16,7 +18,7 @@ def temp_rpc_dir():
 
 
 @pytest.mark.asyncio
-async def test_local_sandbox_provision_and_terminate(temp_rpc_dir):
+async def test_local_sandbox_provision_and_terminate(temp_rpc_dir) -> None:
     """
     Verifies that the LocalSandboxManager can spawn and kill a worker process.
     """
@@ -43,7 +45,7 @@ async def test_local_sandbox_provision_and_terminate(temp_rpc_dir):
 
 
 @pytest.mark.asyncio
-async def test_local_sandbox_multiple_workspaces(temp_rpc_dir):
+async def test_local_sandbox_multiple_workspaces(temp_rpc_dir) -> None:
     """
     Verifies that the manager can handle multiple isolated worker processes.
     """
@@ -68,7 +70,7 @@ async def test_local_sandbox_multiple_workspaces(temp_rpc_dir):
 
 
 @pytest.mark.asyncio
-async def test_worker_bootstrap_and_rpc(temp_rpc_dir):
+async def test_worker_bootstrap_and_rpc(temp_rpc_dir) -> None:
     """
     Verifies that we can connect to a spawned worker and perform an A2A handshake.
     """

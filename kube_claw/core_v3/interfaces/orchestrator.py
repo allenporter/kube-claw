@@ -13,7 +13,7 @@ The Orchestrator is responsible for:
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, AsyncIterator, Dict, Optional
+from typing import Any, AsyncIterator
 
 
 @dataclass(frozen=True)
@@ -24,7 +24,7 @@ class InboundMessage:
     channel_id: str
     author_id: str
     content: str
-    metadata: Optional[Dict[str, Any]] = None
+    metadata: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -33,7 +33,7 @@ class OrchestratorEvent:
 
     type: str  # "thought", "tool_call", "result", "status"
     content: Any
-    metadata: Optional[Dict[str, Any]] = None
+    metadata: dict[str, Any] | None = None
 
 
 class A2AOrchestrator(ABC):

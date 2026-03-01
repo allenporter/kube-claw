@@ -13,7 +13,6 @@ import asyncio
 import signal
 import os
 import logging
-from typing import Optional
 
 from kube_claw.core_v3.worker.server import WorkerServer
 from kube_claw.core_v3.worker.session import SessionManager
@@ -30,13 +29,13 @@ class WorkerEntrypoint:
     Coordinates the lifecycle of the sandboxed worker process.
     """
 
-    def __init__(self, socket_path: Optional[str] = None):
+    def __init__(self, socket_path: str | None = None) -> None:
         self.socket_path = socket_path or os.getenv("SOCKET_PATH", "/rpc/worker.sock")
         self.stop_event = asyncio.Event()
-        self._server: Optional[WorkerServer] = None
+        self._server: WorkerServer | None = None
         self._session_manager = SessionManager()
 
-    async def run(self):
+    async def run(self) -> None:
         """
         Starts the UDS server and waits for the stop signal.
         """
@@ -64,12 +63,12 @@ class WorkerEntrypoint:
         await self.stop_event.wait()
         await self.shutdown()
 
-    def stop(self):
+    def stop(self) -> None:
         """Signals the worker to stop."""
         logger.info("Shutdown signal received.")
         self.stop_event.set()
 
-    async def shutdown(self):
+    async def shutdown(self) -> None:
         """Gracefully shuts down the worker."""
         logger.info("Cleaning up resources...")
         if self._server:

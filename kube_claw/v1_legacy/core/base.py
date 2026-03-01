@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Protocol
+from typing import Any, Protocol
 
 
 class Message(Protocol):
@@ -8,14 +8,14 @@ class Message(Protocol):
     content: str
     author_id: str
     channel_id: str
-    metadata: Dict[str, Any]
+    metadata: dict[str, Any]
 
 
 class JobScheduler(ABC):
     """Abstract base class for scheduling and managing agent execution jobs."""
 
     @abstractmethod
-    async def schedule_job(self, task: str, context: Dict[str, Any]) -> str:
+    async def schedule_job(self, task: str, context: dict[str, Any]) -> str:
         """
         Schedules a new execution job.
         Returns a unique job identifier.

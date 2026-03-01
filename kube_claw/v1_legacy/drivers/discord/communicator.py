@@ -6,7 +6,7 @@ from kube_claw.v1_legacy.core.base import Communicator, Message
 class DiscordMessage(Message):
     """Implementation of the Message protocol for Discord."""
 
-    def __init__(self, message: discord.Message):
+    def __init__(self, message: discord.Message) -> None:
         self.content = message.content
         self.author_id = str(message.author.id)
         self.channel_id = str(message.channel.id)
@@ -19,7 +19,7 @@ class DiscordMessage(Message):
 class DiscordCommunicator(Communicator):
     """Communicator driver using the Discord API via discord.py."""
 
-    def __init__(self, token: str):
+    def __init__(self, token: str) -> None:
         self.token = token
         intents = discord.Intents.default()
         intents.message_content = True

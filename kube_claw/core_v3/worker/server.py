@@ -1,7 +1,7 @@
 import asyncio
 import json
 import logging
-from typing import Optional, Dict, Any
+from typing import Any
 
 from kube_claw.core_v3.worker.session import SessionManager
 
@@ -15,19 +15,19 @@ class WorkerServer:
     Handles the JSON-RPC request/response cycle over the A2A protocol.
     """
 
-    def __init__(self, socket_path: str, session_manager: SessionManager):
+    def __init__(self, socket_path: str, session_manager: SessionManager) -> None:
         self.socket_path = socket_path
         self.session_manager = session_manager
-        self.server: Optional[asyncio.AbstractServer] = None
+        self.server: asyncio.AbstractServer | None = None
 
-    async def start(self):
+    async def start(self) -> None:
         """Starts the Unix Domain Socket server."""
         self.server = await asyncio.start_unix_server(
             self.handle_client, path=self.socket_path
         )
         logger.info(f"WorkerServer listening on {self.socket_path}")
 
-    async def stop(self):
+    async def stop(self) -> None:
         """Stops the server."""
         if self.server:
             self.server.close()
@@ -36,7 +36,7 @@ class WorkerServer:
 
     async def handle_client(
         self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
-    ):
+    ) -> None:
         """Handle incoming A2A connection."""
         addr = writer.get_extra_info("peername")
         logger.info(f"Accepted connection from Host: {addr}")
@@ -60,7 +60,7 @@ class WorkerServer:
             writer.close()
             await writer.wait_closed()
 
-    async def _process_request(self, request: Dict[str, Any]) -> Dict[str, Any]:
+    async def _process_request(self, request: dict[str, Any]) -> dict[str, Any]:
         """Routes the A2A request to the appropriate method."""
         method = request.get("method")
         params = request.get("params", {})

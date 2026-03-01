@@ -17,7 +17,7 @@ import asyncio
 import os
 import logging
 import tempfile
-from typing import Dict, Any, List, Optional
+from typing import Any
 from pathlib import Path
 
 from ..interfaces.sandbox_manager import SandboxManager, SandboxStatus
@@ -30,18 +30,18 @@ class LocalSandboxManager(SandboxManager):
     Manages worker processes running as local subprocesses.
     """
 
-    def __init__(self, base_rpc_dir: Optional[str] = None):
+    def __init__(self, base_rpc_dir: str | None = None) -> None:
         # Default to a temporary directory if not provided
         self.base_rpc_dir = Path(base_rpc_dir or tempfile.gettempdir()) / "claw_rpc"
         self.base_rpc_dir.mkdir(parents=True, exist_ok=True)
 
         # Map of workspace_id -> subprocess object
-        self._processes: Dict[str, asyncio.subprocess.Process] = {}
+        self._processes: dict[str, asyncio.subprocess.Process] = {}
         # Map of workspace_id -> UDS path
-        self._sockets: Dict[str, str] = {}
+        self._sockets: dict[str, str] = {}
 
     async def provision(
-        self, workspace_id: str, context: Dict[str, Any]
+        self, workspace_id: str, context: dict[str, Any]
     ) -> SandboxStatus:
         """
         Spawns a new worker process for the given workspace.
@@ -143,7 +143,7 @@ class LocalSandboxManager(SandboxManager):
             except OSError:
                 pass
 
-    async def list_active_sandboxes(self) -> List[str]:
+    async def list_active_sandboxes(self) -> list[str]:
         """
         Returns active workspace IDs.
         """

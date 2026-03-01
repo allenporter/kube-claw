@@ -1,5 +1,5 @@
 import os
-from typing import Any, Dict
+from typing import Any
 from kube_claw.v1_legacy.core.base import JobScheduler
 
 
@@ -11,7 +11,7 @@ class KubernetesJobScheduler(JobScheduler):
 
     def __init__(
         self, namespace: str = "default", image_name: str = "kube-claw-agent:latest"
-    ):
+    ) -> None:
         self.namespace = namespace
         self.image_name = image_name
         # Lazy initialization of Kubernetes client is better for testing/standalone use
@@ -29,7 +29,7 @@ class KubernetesJobScheduler(JobScheduler):
             self._batch_v1 = client.BatchV1Api()
         return self._batch_v1
 
-    async def schedule_job(self, task: str, context: Dict[str, Any]) -> str:
+    async def schedule_job(self, task: str, context: dict[str, Any]) -> str:
         """
         Schedules a Kubernetes Job to execute a task.
         """

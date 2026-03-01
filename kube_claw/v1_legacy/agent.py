@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from typing import Dict
+
 from kube_claw.v1_legacy.core.base import Communicator, JobScheduler, Message
 
 
@@ -12,14 +12,14 @@ class ClawAgent:
         communicator: Communicator,
         scheduler: JobScheduler,
         polling_interval: float = 2.0,
-    ):
+    ) -> None:
         self.communicator = communicator
         self.scheduler = scheduler
         self.polling_interval = polling_interval
         self.logger = logging.getLogger(__name__)
 
         # Track jobs that we are currently monitoring for status changes
-        self.active_jobs: Dict[str, Dict] = {}  # job_id -> {channel_id, last_status}
+        self.active_jobs: dict[str, dict] = {}  # job_id -> {channel_id, last_status}
         self.monitoring_task: asyncio.Task | None = None
 
     async def on_message_received(self, message: Message) -> None:
