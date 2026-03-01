@@ -1,5 +1,9 @@
 # Project TODOs
 
+
+## Phase 0: More detailed design
+- [ ] The plan below is good for just testing out the interfaces below, however does not really have a "driver" to drive everything. The claw agent orchestration idea is not fully fleshed out. Do more research.
+
 ## Phase 1: Core Logic & Mocking (Current)
 - [ ] Implement `FakeCommunicator` with CLI interaction support
 - [ ] Implement `FakeJobScheduler` with local state persistence
