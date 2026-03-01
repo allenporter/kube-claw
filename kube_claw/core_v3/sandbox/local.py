@@ -15,12 +15,13 @@ where Docker or Kubernetes is not available.
 
 import asyncio
 import os
+import sys
 import logging
 import tempfile
 from typing import Any
 from pathlib import Path
 
-from ..interfaces.sandbox_manager import SandboxManager, SandboxStatus
+from .manager import SandboxManager, SandboxStatus
 
 logger = logging.getLogger("claw.infrastructure.local_sandbox")
 
@@ -37,8 +38,8 @@ class LocalSandboxManager(SandboxManager):
 
         # Map of workspace_id -> subprocess object
         self._processes: dict[str, asyncio.subprocess.Process] = {}
-        # Map of workspace_id -> UDS path
-        self._sockets: dict[str, str] = {}
+        # Map of workspace_id -> (a2a_socket, mcp_socket)
+        self._sockets: dict[str, tuple[str, str]] = {}
 
     async def provision(
         self, workspace_id: str, context: dict[str, Any]
@@ -53,17 +54,18 @@ class LocalSandboxManager(SandboxManager):
             # If not running, cleanup and restart
             await self.terminate(workspace_id)
 
-        socket_path = self.base_rpc_dir / f"{workspace_id}.sock"
-        self._sockets[workspace_id] = str(socket_path)
+        a2a_socket = self.base_rpc_dir / f"{workspace_id}_a2a.sock"
+        mcp_socket = self.base_rpc_dir / f"{workspace_id}_mcp.sock"
+        self._sockets[workspace_id] = (str(a2a_socket), str(mcp_socket))
 
         # Environment for the worker
         env = os.environ.copy()
-        env["SOCKET_PATH"] = str(socket_path)
+        env["SOCKET_PATH"] = str(a2a_socket)  # A2A Socket
+        env["MCP_SOCKET_PATH"] = str(mcp_socket)  # MCP Socket
         env["WORKSPACE_ID"] = workspace_id
 
         # Command to run the worker entrypoint
-        # In a real setup, we might use 'python -m kube_claw.core_v3.worker.entrypoint'
-        cmd = ["python3", "-m", "kube_claw.core_v3.worker.entrypoint"]
+        cmd = [sys.executable, "-m", "kube_claw.core_v3.worker.entrypoint"]
 
         try:
             process = await asyncio.create_subprocess_exec(
@@ -77,12 +79,22 @@ class LocalSandboxManager(SandboxManager):
                 f"Spawned local worker for workspace '{workspace_id}' (PID: {process.pid})"
             )
 
-            # Wait a moment for the socket to be created
-            # In a production version, we'd use a more robust 'wait_for_file' or 'wait_for_socket'
-            for _ in range(10):
-                if socket_path.exists():
+            # Wait for A2A socket to be available (Worker is the server)
+            for i in range(20):
+                if a2a_socket.exists():
                     break
-                await asyncio.sleep(0.1)
+
+                if process.returncode is not None:
+                    # Process died early!
+                    stdout, stderr = await process.communicate()
+                    logger.error(f"Worker died with code {process.returncode}")
+                    logger.error(f"Worker Stderr: {stderr.decode()}")
+                    return SandboxStatus(
+                        is_running=False,
+                        last_known_status=f"CRASHED({process.returncode})",
+                        metadata={"stderr": stderr.decode()},
+                    )
+                await asyncio.sleep(0.5)
 
             return await self.get_status(workspace_id)
 
@@ -99,17 +111,19 @@ class LocalSandboxManager(SandboxManager):
         Checks if the process for the workspace is still running.
         """
         process = self._processes.get(workspace_id)
-        socket_path = self._sockets.get(workspace_id)
+        sockets = self._sockets.get(workspace_id)
 
         if not process:
             return SandboxStatus(is_running=False, last_known_status="NOT_FOUND")
 
         # Check if process is still alive
         if process.returncode is None:
+            a2a_path, mcp_path = sockets if sockets else (None, None)
             return SandboxStatus(
                 is_running=True,
                 last_known_status="RUNNING",
-                connection_endpoint=socket_path,
+                connection_endpoint=a2a_path,
+                mcp_endpoint=mcp_path,
                 metadata={"pid": process.pid},
             )
         else:
@@ -124,7 +138,7 @@ class LocalSandboxManager(SandboxManager):
         Kills the worker process and cleans up.
         """
         process = self._processes.pop(workspace_id, None)
-        socket_path = self._sockets.pop(workspace_id, None)
+        sockets = self._sockets.pop(workspace_id, None)
 
         if process and process.returncode is None:
             logger.info(
@@ -137,11 +151,13 @@ class LocalSandboxManager(SandboxManager):
                 process.kill()
                 await process.wait()
 
-        if socket_path and os.path.exists(socket_path):
-            try:
-                os.remove(socket_path)
-            except OSError:
-                pass
+        if sockets:
+            for socket_path in sockets:
+                if socket_path and os.path.exists(socket_path):
+                    try:
+                        os.remove(socket_path)
+                    except OSError:
+                        pass
 
     async def list_active_sandboxes(self) -> list[str]:
         """
@@ -153,7 +169,6 @@ class LocalSandboxManager(SandboxManager):
             if status.is_running:
                 active.append(wid)
             else:
-                # Cleanup dead processes
                 self._processes.pop(wid, None)
                 self._sockets.pop(wid, None)
         return active

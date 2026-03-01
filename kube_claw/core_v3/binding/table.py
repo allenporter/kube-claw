@@ -18,19 +18,8 @@ This component acts as a **Repository** in the Domain layer, decoupling the spec
 """
 
 from abc import ABC, abstractmethod
-from typing import Any
-from pydantic import BaseModel, Field
 
-
-class WorkspaceContext(BaseModel):
-    """
-    Metadata about the execution environment (Lane).
-    """
-
-    workspace_id: str
-    pvc_name: str | None = None
-    auth_profile: dict[str, str] = Field(default_factory=dict)
-    metadata: dict[str, Any] = Field(default_factory=dict)
+from kube_claw.core_v3.domain.models import WorkspaceContext
 
 
 class BindingTable(ABC):

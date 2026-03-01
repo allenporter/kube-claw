@@ -12,13 +12,13 @@ and development.
 
 ## Best Practices:
 Use this implementation for:
-- Testing the `A2AOrchestrator`'s lifecycle logic.
+- Testing the `Orchestrator`'s lifecycle logic.
 - Developing the A2A handshake protocol without infrastructure dependencies.
 """
 
 from typing import Any
 
-from kube_claw.core_v3.interfaces.sandbox_manager import SandboxManager, SandboxStatus
+from kube_claw.core_v3.sandbox.manager import SandboxManager, SandboxStatus
 
 
 class FakeSandboxManager(SandboxManager):

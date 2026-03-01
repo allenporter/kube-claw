@@ -1,5 +1,5 @@
 import pytest
-from kube_claw.core_v3.testing.in_memory_binding import InMemoryBindingTable
+from kube_claw.core_v3.binding.fakes import InMemoryBindingTable
 
 
 @pytest.mark.asyncio
@@ -18,7 +18,7 @@ async def test_in_memory_binding_table_jit():
 @pytest.mark.asyncio
 async def test_update_binding():
     table = InMemoryBindingTable()
-    from kube_claw.core_v3.interfaces.binding_table import WorkspaceContext
+    from kube_claw.core_v3.binding.table import WorkspaceContext
 
     new_context = WorkspaceContext(workspace_id="manual-id", metadata={"foo": "bar"})
     await table.update_binding("slack", "C123", "U456", new_context)

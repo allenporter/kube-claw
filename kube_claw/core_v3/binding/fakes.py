@@ -17,7 +17,7 @@ Use this implementation for:
 - Local development without a database or K8s.
 """
 
-from kube_claw.core_v3.interfaces.binding_table import BindingTable, WorkspaceContext
+from kube_claw.core_v3.binding.table import BindingTable, WorkspaceContext
 
 
 class InMemoryBindingTable(BindingTable):

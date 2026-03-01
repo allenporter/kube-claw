@@ -1,7 +1,8 @@
 """
-A2A Orchestrator Interface
+Orchestrator Interface
 
 This module defines the central 'Brain' of the Claw Core v3 architecture.
+
 The Orchestrator is responsible for:
 1. Receiving inbound messages (intents) from a Gateway.
 2. Resolving the User/Channel to a Workspace via the BindingTable.
@@ -12,33 +13,13 @@ The Orchestrator is responsible for:
 """
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
-from typing import Any, AsyncIterator
+from collections.abc import AsyncIterator
+from kube_claw.core_v3.domain.models import InboundMessage, OrchestratorEvent
 
 
-@dataclass(frozen=True)
-class InboundMessage:
-    """A normalized message from any protocol (Discord, Slack, etc.)."""
-
-    protocol: str  # e.g., "discord"
-    channel_id: str
-    author_id: str
-    content: str
-    metadata: dict[str, Any] | None = None
-
-
-@dataclass(frozen=True)
-class OrchestratorEvent:
-    """An event streamed from the Orchestrator back to the caller."""
-
-    type: str  # "thought", "tool_call", "result", "status"
-    content: Any
-    metadata: dict[str, Any] | None = None
-
-
-class A2AOrchestrator(ABC):
+class Orchestrator(ABC):
     """
-    Abstract Base Class for the A2A Orchestrator.
+    Abstract Base Class for the Orchestrator.
 
     This component coordinates the domain logic and manages the lifecycle
     of an agent interaction.

@@ -15,7 +15,6 @@ import os
 import logging
 
 from kube_claw.core_v3.worker.server import WorkerServer
-from kube_claw.core_v3.worker.session import SessionManager
 
 # Setup basic logging
 logging.basicConfig(
@@ -33,7 +32,6 @@ class WorkerEntrypoint:
         self.socket_path = socket_path or os.getenv("SOCKET_PATH", "/rpc/worker.sock")
         self.stop_event = asyncio.Event()
         self._server: WorkerServer | None = None
-        self._session_manager = SessionManager()
 
     async def run(self) -> None:
         """
@@ -43,15 +41,14 @@ class WorkerEntrypoint:
 
         # Ensure directory exists for UDS
         socket_dir = os.path.dirname(self.socket_path)
-        if not os.path.exists(socket_dir):
+        if socket_dir and not os.path.exists(socket_dir):
             os.makedirs(socket_dir, exist_ok=True)
 
-        # Cleanup existing socket if present
         if os.path.exists(self.socket_path):
             os.remove(self.socket_path)
 
         # Initialize and start the WorkerServer
-        self._server = WorkerServer(self.socket_path, self._session_manager)
+        self._server = WorkerServer(self.socket_path)
         await self._server.start()
 
         # Set up signal handlers
@@ -84,8 +81,6 @@ class WorkerEntrypoint:
 
 
 if __name__ == "__main__":
-    # In a real environment, this would be the main entrypoint.
-    # For now, we're just scaffolding.
     worker = WorkerEntrypoint()
     try:
         asyncio.run(worker.run())
