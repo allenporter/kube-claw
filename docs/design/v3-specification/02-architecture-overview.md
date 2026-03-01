@@ -16,30 +16,46 @@ graph TD
 
     subgraph "Claw Host (Control Plane)"
         Gateway[Inbound Gateway]
-        Runtime[Agent Runtime / Orchestrator]
+        Runtime[A2A Orchestrator]
         DB[(Binding Table / SQLite)]
-        ProxiedTools[Proxied Tools: Slack / Stripe]
+        MCPServer[MCP Tool Server]
     end
 
     subgraph "The Sandbox (Data Plane)"
-        Container[Agent Worker Container]
-        DirectTools[Direct Tools: Bash / Git / CLI]
+        Container[ADK Agent Worker]
+        DirectTools[Direct Tools: Bash / Git]
         Workspace[PVC: Project Files / CLAUDE.md]
     end
 
     %% Flow
     WA & DS & EM -->|Trigger| Gateway
     Gateway -->|Resolve Identity| DB
-    Gateway -->|Handshake| Runtime
+    Gateway -->|A2A Task| Runtime
     Runtime -->|Mount PVC / Inject Direct Creds| Container
     Container <-->|Local Exec| DirectTools
-    Container <-->|RPC / Hydration| Runtime
-    Runtime -->|API Calls| ProxiedTools
+    Container <-->|MCP Tool Call| MCPServer
+    MCPServer -->|Hydrated API Calls| ProxiedTools
     DirectTools <-->|Modify| Workspace
     Runtime -.->|Stream| WA & DS & EM
 ```
 
-## 2. Core Principles
+## 2. Core Protocols
+
+The system uses two primary protocols for Host-Worker communication:
+
+### I. A2A (Agent-to-Agent) - Orchestration Plane
+*   **Role**: Manages the high-level task lifecycle (Submitted, Working, Input Required, Completed).
+*   **Socket**: `/rpc/worker.sock` (UDS)
+*   **Implementation**: Used by the Host to send prompts and receive status/thought updates from the Worker.
+
+### II. MCP (Model Context Protocol) - Tool Plane
+*   **Role**: Provides a standardized way for the Worker to discover and execute Host-side tools.
+*   **Socket**: `/rpc/mcp.sock` (UDS)
+*   **Implementation**: The Host acts as an MCP Server. The Worker (MCP Client) calls tools like `slack_send` which are then hydrated with host-side credentials.
+
+---
+
+## 3. Core Principles
 
 
 A robust Claw Core is built on four pillars that move it beyond a simple chatbot into a functional autonomous agent.
@@ -77,19 +93,22 @@ The "Ear" of the system. Its primary responsibility is normalization.
     *   **Context Fetching**: Retrieve the last $N$ messages from the database to provide immediate history.
     *   **Concurrency Control**: Implement a "Group Queue" to ensure that a single session only processes one message at a time to prevent state corruption.
 
-### B. The Agent Runtime (The Brain)
+### B. The A2A Orchestrator (The Brain)
 The orchestrator of the "Thought Loop."
 *   **Requirements**:
+    *   **A2A Protocol**: Manage the state machine (`TASK_STATE_WORKING`, `TASK_STATE_INPUT_REQUIRED`, etc.).
     *   **Prompt Assembly**: Dynamically build the system prompt by merging Global/Local memory files (`CLAUDE.md`) with the current conversation.
     *   **Streaming IPC**: Handle the delta-stream from the LLM and route it to the user in real-time.
-    *   **Tool Dispatcher**: Intercept "tool_use" calls from the LLM, validate permissions, and route them to the Sandbox.
-    *   **Identity & Auth Hydration**: Intercept "host-proxied" tool calls (e.g., Slack, GitHub) and inject the user's secure tokens and target channel IDs before execution. This ensures the Sandbox remains credential-free.
+    *   **MCP Hosting**: Host an MCP server that provides sensitive tools (Slack, GitHub) to the Worker.
+    *   **Identity & Auth Hydration**: Intercept MCP tool calls and inject the user's secure tokens and target IDs before execution.
 
 ### C. The Execution Sandbox (The Hand)
 The isolated environment where the work happens.
 *   **Requirements**:
+    *   **ADK Framework**: Run the ADK Agent loop for reasoning and tool dispatching.
+    *   **MCP Client**: Connect to the Host's MCP socket to discover and execute proxied tools.
     *   **Workspace Management**: Automatically mount the correct host directory (Project Folder) to the container.
-    *   **Safe-Tooling**: Provide a standard set of capabilities (Bash, Read/Write File, Search) that are pre-configured to run within the container's restricted user space.
+    *   **Safe-Tooling**: Provide a standard set of local ADK skills (Bash, Read/Write File) that run within the container's restricted user space.
     *   **Persistence**: Ensure that files created by the agent in the container persist on the host (via Volume Mounts).
 
 ### D. The Stateful Sequencer (The Nervous System)
