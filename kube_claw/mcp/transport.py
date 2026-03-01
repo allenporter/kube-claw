@@ -2,8 +2,10 @@ import asyncio
 import os
 import anyio
 from mcp.shared.message import SessionMessage
+from mcp.server.models import InitializationOptions
+from mcp.server import NotificationOptions
 import mcp.types as types
-from .server import ClawMCPServer
+from .server import create_mcp_server
 
 
 async def run_mcp_server_on_uds(socket_path: str, lane_id: str, workspace_path: str):
@@ -14,7 +16,8 @@ async def run_mcp_server_on_uds(socket_path: str, lane_id: str, workspace_path: 
     if os.path.exists(socket_path):
         os.remove(socket_path)
 
-    mcp_logic = ClawMCPServer(lane_id, workspace_path)
+    mcp_instance = create_mcp_server(lane_id, workspace_path)
+    low_level_server = mcp_instance._mcp_server
 
     async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
         # Create AnyIO memory streams to bridge to MCP
@@ -58,7 +61,18 @@ async def run_mcp_server_on_uds(socket_path: str, lane_id: str, workspace_path: 
                 tg.start_soon(reader_task)
                 tg.start_soon(writer_task)
                 # Run the MCP server logic
-                await mcp_logic.run_server(read_stream, write_stream)
+                await low_level_server.run(
+                    read_stream,
+                    write_stream,
+                    InitializationOptions(
+                        server_name="claw-mcp-server",
+                        server_version="0.2.0",
+                        capabilities=low_level_server.get_capabilities(
+                            notification_options=NotificationOptions(),
+                            experimental_capabilities={},
+                        ),
+                    ),
+                )
         finally:
             writer.close()
             try:

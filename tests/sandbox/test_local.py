@@ -1,3 +1,4 @@
+import os
 import pytest
 import shutil
 import tempfile
@@ -48,6 +49,10 @@ async def test_local_sandbox_provision_and_terminate(temp_rpc_dir) -> None:
 
 
 @pytest.mark.asyncio
+@pytest.mark.skipif(
+    not os.getenv("GOOGLE_API_KEY") and not os.getenv("GOOGLE_GENAI_API_KEY"),
+    reason="Requires GOOGLE_API_KEY for ADK LlmAgent",
+)
 async def test_worker_a2a_handshake(temp_rpc_dir) -> None:
     """
     Verifies that we can connect to a spawned worker and perform an A2A handshake.
@@ -66,11 +71,11 @@ async def test_worker_a2a_handshake(temp_rpc_dir) -> None:
         a2a_transport = JsonRpcTransport(httpx_client=client, url="http://localhost/")
 
         # 3. Send a message to the worker
-        # (This triggers the ClawAgentExecutor logic)
+        # (This triggers the ClawAgentExecutor logic with real LLM)
         a2a_message = Message(
             message_id="test-msg-1",
             role=Role.user,
-            parts=[Part(root=TextPart(kind="text", text="Is the bridge stable?"))],
+            parts=[Part(root=TextPart(kind="text", text="Say hello"))],
         )
         params = MessageSendParams(message=a2a_message)
 
@@ -83,7 +88,7 @@ async def test_worker_a2a_handshake(temp_rpc_dir) -> None:
                 elif hasattr(part, "root") and hasattr(part.root, "text"):
                     responses.append(part.root.text)
 
-        # 4. Verify we got a response from the worker
-        assert any("completed your request" in r for r in responses)
+        # 4. Verify we got any response from the worker (LLM output varies)
+        assert len(responses) > 0
 
     await manager.terminate(workspace_id)
