@@ -9,6 +9,9 @@ ruff==0.8.1
 
 # Pinned development versions
 ty==0.0.18
+pytest-asyncio==1.3.0
+pydantic==2.12.5
+
 discord-py==2.6.4
 kubernetes==35.0.0
 aioconsole>=0.8.2

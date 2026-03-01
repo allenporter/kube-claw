@@ -8,11 +8,7 @@ This document tracks the outstanding design gaps and tasks that need to be addre
 - [ ] **PVC Management**: Define how persistent volumes for workspaces are provisioned and attached to lanes (e.g., dynamic vs. static provisioning).
 
 ## 2. Data Modeling & Identity
-- [ ] **Formal Binding Table Schema**: Define the Pydantic/SQL schema for the Binding Table. It must map:
-    - Protocol/Channel Identity (e.g., Discord/WhatsApp ID)
-    - Workspace Path (PVC)
-    - Auth Profile (GitHub/Docker credentials)
-    - Current A2A Session/Context ID
+- [x] **Formal Binding Table Schema**: Define the Pydantic/SQL schema for the Binding Table. (Defined in `kube_claw/core_v3/interfaces/binding_table.py`)
 - [ ] **Auth Profile Injection**: Design the secure mechanism for injecting credentials (like GitHub tokens) into the worker container (e.g., K8s Secrets or dynamic env injection).
 
 ## 3. Communication & Protocol (A2A)
@@ -32,6 +28,12 @@ This document tracks the outstanding design gaps and tasks that need to be addre
 - [ ] **Pulse System Design**: Define the "Pulse" mechanism for proactive task triggers (e.g., daily triaging).
 - [ ] **Retry & Failure Logic**: Design how the system handles worker crashes or long-running task timeouts in the "Warm Lane" model.
 
-## 6. Research Tasks
+## 6. Implementation & Codebase
+- [x] **Establish Core v3 Structure**: Set up the `kube_claw/core_v3` directory with domain, infrastructure, and interfaces.
+- [x] **Define Core Interfaces**: Created `BindingTable` and `SandboxManager` ABCs.
+- [x] **Create Testing Fakes**: Implemented `InMemoryBindingTable` and `FakeSandboxManager`.
+- [ ] **Orchestrator Implementation**: Develop the `A2AOrchestrator` to bridge the gateway and the sandbox.
+
+## 7. Research Tasks
 - [ ] **A2A Protocol Audit**: Perform a "Pragmatism Audit" comparing a custom RPC vs. full A2A implementation.
 - [ ] **A2A-Python Evaluation**: Review the existing `/workspaces/A2A` codebase for integration readiness.
