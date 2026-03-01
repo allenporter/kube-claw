@@ -1,0 +1,75 @@
+# Claw Core v3: The Unified Specification
+
+This document defines the "Gold Standard" for a tool-capable LLM orchestrator, synthesizing the strengths of **OpenClaw** (stateful management, logical lanes) and **NanoClaw** (clean filesystem isolation, transient execution).
+
+---
+
+## 1. System Philosophy
+
+1.  **Logical Serialization**: A user session is a "Lane." No two runs in the same lane should interleave.
+2.  **Stateless Host, Stateful Sandbox**: The host process manages the "Brain" and "Mouth" (API/Channels). The "Hand" (Sandbox) is the only place where state (files/code) lives.
+3.  **Strict Capability Tiers**:
+    *   **Tier 0 (Read-Only)**: Global memory/knowledge.
+    *   **Tier 1 (Workspace)**: Project-specific files (`/workspace/group`).
+    *   **Tier 2 (System)**: Restricted access to host tools (via sanctioned IPC).
+
+---
+
+## 2. Core Architecture: The "Triad" Refined
+
+### A. The Reachability Layer (Multi-Channel)
+*   **Protocol Neutrality**: All inputs (WhatsApp, Discord, TUI) are mapped to a `StandardIntent`:
+    ```json
+    {
+      "laneId": "session:user-123",
+      "text": "fix the build",
+      "attachments": [...],
+      "context": { "projectId": "alpha", "userId": "user-456" }
+    }
+    ```
+*   **Logical Queuing**: The host enqueues this intent into the `CommandLane`.
+
+### B. The Orchestration Layer (The Controller)
+*   **Session Lifecycle Manager**: Instead of just starting a container, the controller manages "Session Handles."
+*   **Backends**: A pluggable system where a backend can be:
+    *   `Transient`: (NanoClaw style) Spawns a fresh container, runs a task, and exits.
+    *   `Persistent`: (OpenClaw style) Keeps a container warm for low-latency turns.
+*   **Context Compaction**: The controller monitors token usage and triggers a "Compaction Step" (summarization) before the next turn if limits are exceeded.
+
+### C. The Execution Layer (The Sandbox)
+*   **Hierarchical Mounts**: Every sandbox must have three standard mount points:
+    1.  `/workspace/global`: Read-only system-wide knowledge.
+    2.  `/workspace/project`: Read/Write project-specific files.
+    3.  `/workspace/session`: Read/Write ephemeral turn-specific state (e.g., `.claude/`).
+*   **No Network by Default**: Tools must be proxied through the host to enforce safety and observability.
+
+---
+
+## 3. Key Functional Innovations
+
+### I. The "Lane" Handshake
+When an intent enters a lane, the controller performs a **Session Handshake**:
+1.  **Resolve Workspace**: Determine the correct project path on the host.
+2.  **Verify Memory**: Load/Prune the session's `.claude/` state.
+3.  **Spawn/Wake Sandbox**: Initialize the backend with the correct mounts.
+4.  **Inject Identity**: Ensure the agent knows its user/context (via system prompt).
+
+### II. Proactive Autonomy (The Pulse)
+A background scheduler (Cron) that can inject intents into any lane.
+*   **Example**: "Every Monday at 9 AM, run a `morning-briefing` intent in the `session:team-alpha` lane."
+
+### III. Tool IPC (The Nerve)
+All tools inside the sandbox communicate with the host via a standard JSON-RPC interface over a Unix socket or named pipe. This allows:
+*   **Host-side Approval**: User can approve/deny a `bash` command before it runs.
+*   **Audit Logging**: Every tool call is recorded outside the sandbox.
+
+---
+
+## 4. Implementation Guidelines (The "Claw" Checklist)
+
+- [ ] Use **Logical Lanes** for concurrency control.
+- [ ] Use **Docker/Podman** for mandatory sandbox isolation.
+- [ ] Implement **Hierarchical Filesystem Mounts**.
+- [ ] Support **Multi-Channel Input** (normalization).
+- [ ] Provide a **Background Scheduler** for proactive tasks.
+- [ ] Include an **Audit Log** of all tool executions.
