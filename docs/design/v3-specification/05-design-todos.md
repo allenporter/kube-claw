@@ -12,10 +12,11 @@ This document tracks the outstanding design gaps and tasks that need to be addre
 - [ ] **Auth Profile Injection**: Design the secure mechanism for injecting credentials (like GitHub tokens) into the worker container (e.g., K8s Secrets or dynamic env injection).
 
 ## 3. Communication & Protocol (A2A)
+- [x] **Orchestrator Handshake & Lifecycle**: Defined the state machine and connection flow. (See `08-orchestrator-handshake.md`)
 - [ ] **A2A Worker Entrypoint Spec**: Define the behavior of the `agent_entrypoint.py` inside the worker container.
     - How it initializes the A2A state machine.
     - How it listens on the UDS (Unix Domain Socket).
-- [ ] **Tooling Protocol**: Decide if tools are executed via Model Context Protocol (MCP) or native A2A artifacts.
+- [x] **Tooling Protocol (Hybrid Model)**: Decided on a Hybrid Tooling Model (Direct vs. Proxied) with Host-side Hydration. (See `07-tool-schemas.md`)
 - [ ] **Interrupt & Concurrency Logic**: Define how the Host handles new user input while a worker is already processing an A2A task (e.g., `input.push` behavior).
 
 ## 4. Security & Isolation
