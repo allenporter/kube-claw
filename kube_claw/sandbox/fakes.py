@@ -18,7 +18,7 @@ Use this implementation for:
 
 from typing import Any
 
-from kube_claw.core_v3.sandbox.manager import SandboxManager, SandboxStatus
+from kube_claw.sandbox.manager import SandboxManager, SandboxStatus
 
 
 class FakeSandboxManager(SandboxManager):

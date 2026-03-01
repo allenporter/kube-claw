@@ -1,5 +1,5 @@
 import pytest
-from kube_claw.core_v3.sandbox.fakes import FakeSandboxManager
+from kube_claw.sandbox.fakes import FakeSandboxManager
 
 
 @pytest.mark.asyncio

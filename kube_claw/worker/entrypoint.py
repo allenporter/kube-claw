@@ -14,7 +14,7 @@ import signal
 import os
 import logging
 
-from kube_claw.core_v3.worker.server import WorkerServer
+from kube_claw.worker.server import WorkerServer
 
 # Setup basic logging
 logging.basicConfig(

@@ -8,7 +8,7 @@ from typing import Generator
 from a2a.client.transports.jsonrpc import JsonRpcTransport
 from a2a.types import Message, MessageSendParams, Role, Part, TextPart
 
-from kube_claw.core_v3.sandbox.local import LocalSandboxManager
+from kube_claw.sandbox.local import LocalSandboxManager
 
 
 @pytest.fixture

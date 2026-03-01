@@ -65,7 +65,7 @@ class LocalSandboxManager(SandboxManager):
         env["WORKSPACE_ID"] = workspace_id
 
         # Command to run the worker entrypoint
-        cmd = [sys.executable, "-m", "kube_claw.core_v3.worker.entrypoint"]
+        cmd = [sys.executable, "-m", "kube_claw.worker.entrypoint"]
 
         try:
             process = await asyncio.create_subprocess_exec(

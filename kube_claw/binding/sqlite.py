@@ -1,7 +1,7 @@
 import aiosqlite
 import json
 
-from kube_claw.core_v3.domain.models import WorkspaceContext
+from kube_claw.domain.models import WorkspaceContext
 
 from .table import BindingTable
 

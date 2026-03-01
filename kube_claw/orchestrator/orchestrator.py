@@ -15,10 +15,10 @@ from a2a.types import (
     TextPart,
 )
 
-from kube_claw.core_v3.domain.models import InboundMessage, OrchestratorEvent
-from kube_claw.core_v3.binding.table import BindingTable
-from kube_claw.core_v3.sandbox.manager import SandboxManager
-from kube_claw.core_v3.infrastructure.mcp.transport import run_mcp_server_on_uds
+from kube_claw.domain.models import InboundMessage, OrchestratorEvent
+from kube_claw.binding.table import BindingTable
+from kube_claw.sandbox.manager import SandboxManager
+from kube_claw.mcp.transport import run_mcp_server_on_uds
 
 from .base import Orchestrator
 
