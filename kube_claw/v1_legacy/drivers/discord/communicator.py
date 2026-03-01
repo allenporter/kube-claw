@@ -1,6 +1,6 @@
 import discord
 from typing import Any, Callable
-from kube_claw.core.base import Communicator, Message
+from kube_claw.v1_legacy.core.base import Communicator, Message
 
 
 class DiscordMessage(Message):

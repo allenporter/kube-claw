@@ -51,7 +51,7 @@ A robust Claw Core is built on four pillars that move it beyond a simple chatbot
 
 ### II. Persistence (The Memory Principle)
 *   **Definition**: The agent must maintain state across long durations and multiple sessions.
-*   **Requirement**: 
+*   **Requirement**:
     *   **Hierarchical Memory**: Support for Global memory (general facts) and Local memory (project/chat-specific context).
     *   **Automated Compaction**: A mechanism to summarize or prune conversation history to keep the agent within LLM context limits without losing the "thread" of the task.
 *   **Goal**: Create a sense of continuity where the agent "knows" who you are and what you're working on.

@@ -1,7 +1,7 @@
 import asyncio
 from typing import Any, Callable
 from aioconsole import ainput
-from kube_claw.core.base import Communicator, Message
+from kube_claw.v1_legacy.core.base import Communicator, Message
 
 
 class FakeMessage(Message):

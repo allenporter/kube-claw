@@ -1,11 +1,11 @@
 import os
 import asyncio
 import logging
-from kube_claw.agent import ClawAgent
-from kube_claw.drivers.discord.communicator import DiscordCommunicator
-from kube_claw.drivers.kubernetes.scheduler import KubernetesJobScheduler
-from kube_claw.drivers.fake.communicator import FakeCommunicator
-from kube_claw.drivers.fake.scheduler import FakeJobScheduler
+from kube_claw.v1_legacy.agent import ClawAgent
+from kube_claw.v1_legacy.drivers.discord.communicator import DiscordCommunicator
+from kube_claw.v1_legacy.drivers.kubernetes.scheduler import KubernetesJobScheduler
+from kube_claw.v1_legacy.drivers.fake.communicator import FakeCommunicator
+from kube_claw.v1_legacy.drivers.fake.scheduler import FakeJobScheduler
 
 
 async def main() -> None:

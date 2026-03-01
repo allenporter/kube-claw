@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from typing import Dict
-from kube_claw.core.base import Communicator, JobScheduler, Message
+from kube_claw.v1_legacy.core.base import Communicator, JobScheduler, Message
 
 
 class ClawAgent:

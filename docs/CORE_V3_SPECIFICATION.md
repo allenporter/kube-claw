@@ -70,12 +70,15 @@ To handle a user working across multiple projects/channels, the Core uses a **Bi
 | Discord | `#alpha-dev` | `Dev-A` | `Alpha-Bot` | `/repos/alpha` | `github-token-A` |
 | Discord | `#beta-dev` | `Dev-A` | `Beta-Bot` | `/repos/beta` | `github-token-A` |
 | WhatsApp| `Personal` | `Dev-A` | `Personal-Bot`| `/repos/home` | `personal-key` |
+| Email   | `allenporter@`| `Dev-A` | `Library-Bot` | `/repos/ical` | `github-token-A` |
 
 *   **Key Insight**: A single user (`Dev-A`) can have multiple **Agent Personalities** and **Workspaces** depending on *where* they are talking to the Core. The `Auth Profile` (credentials) follows the user, while the `Workspace` follows the channel/context.
+*   **Case Study**: See `docs/SCENARIO_MULTI_PROJECT_FIX.md` for an illustration of how a user switches between projects via Email and Discord.
 
 ### III. Proactive Autonomy (The Pulse)
 A background scheduler (Cron) that can inject intents into any lane.
 *   **Example**: "Every Monday at 9 AM, run a `morning-briefing` intent in the `session:team-alpha` lane."
+*   **Case Study**: See `docs/SCENARIO_ROBOROCK_MAINTAINER.md` for a walkthrough of how an agent transitions from reactive chat to proactive daily triage.
 
 ### III. Tool IPC (The Nerve)
 All tools inside the sandbox communicate with the host via a standard JSON-RPC interface over a Unix socket or named pipe. This allows:

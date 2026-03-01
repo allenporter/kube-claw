@@ -1,68 +1,15 @@
-# kube-claw (Claw Core)
+# Claw Core v3: Architecture & Research
 
-**Claw Core** is a minimalist, model-agnostic AI agent framework based on the **NanoClaw** philosophy. It is designed to manage Kubernetes-based workloads, developer environments, and communication channels (starting with Discord) using the **Google ADK** (Agent Development Kit).
+This directory contains the design and implementation for the next generation of the Claw orchestration framework.
 
-## 💡 Philosophy
+## Status: Design Phase
+The project has been reset to a clean state to avoid legacy assumptions from the previous "One-Job-per-Task" model.
 
-- **Minimalist**: Prioritizes simple, readable, and maintainable solutions over complex abstractions.
-- **Model Agnostic**: Designed to run across various LLMs (Gemini, Ollama, Claude, etc.) via the `adk-cli` or compatible drivers.
-- **Environment-First**: Operates natively within a Kubernetes cluster, utilizing cluster resources (Jobs, PVCs, etc.) as its "body".
-- **Human-in-the-Loop**: Built-in safety requirements for destructive or public-facing actions.
-- **GitOps Driven**: All configurations and code changes are version-controlled.
+### Core Principles (v3)
+- **A2A Protocol**: Every worker (sandbox) is an A2A-compliant agent.
+- **Warm Lanes**: Persistent communication channels between Host and Sandbox.
+- **Binding Table**: Just-in-Time resolution of identity to workspace/credentials.
+- **Opaque Execution**: Sandbox internals are hidden; interaction is via standardized A2A Artifacts and Tasks.
 
-## 🏗️ Architecture
-
-Claw Core provides the foundational identity and system instructions for the NanoClaw ecosystem.
-
-- **`kube_claw/core/`**: Contains the core identity and system instructions.
-- **Kubernetes**: Used as the primary job execution engine for workers and isolated tasks.
-- **Discord**: Initial communication hub for tasking and updates.
-- **ADK Powered**: Built on top of the Google ADK for tool use and agent orchestration.
-
-## 🚀 Getting Started
-
-### Prerequisites
-
-- Python 3.14+
-- `uv` (recommended for dependency management)
-- Access to a Kubernetes cluster (for full functionality)
-
-### Setup
-
-1.  Clone the repository:
-    ```bash
-    git clone https://github.com/allenporter/kube_claw.git
-    cd kube_claw
-    ```
-
-2.  Run the setup script to initialize the virtual environment and pre-commit hooks:
-    ```bash
-    ./script/setup
-    ```
-
-### Testing & Linting
-
-- Run tests: `./script/test`
-- Run linters: `./script/lint`
-
-## 🛠️ Usage
-
-Claw Core is intended to be used with the `adk-cli`. You can load the core system instructions into your agent driver:
-
-```python
-from kube_claw.core.identity import get_system_instruction
-
-instruction = get_system_instruction()
-# Pass instruction to your ADK agent or LLM driver
-```
-
-## 🗺️ Roadmap
-
-- [ ] Define abstract interfaces for "Job Scheduling" and "Communication".
-- [ ] Implement Kubernetes-specific job management logic.
-- [ ] Create the Discord connector.
-- [ ] Enhance failure recovery and idempotency.
-
-## 📄 License
-
-Apache-2.0 - See [LICENSE](LICENSE) for details.
+### Legacy Code
+Previous iterations and proof-of-concepts have been moved to `v1_legacy/`.

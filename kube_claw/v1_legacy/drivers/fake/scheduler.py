@@ -1,7 +1,7 @@
 import asyncio
 import uuid
 from typing import Any, Dict
-from kube_claw.core.base import JobScheduler
+from kube_claw.v1_legacy.core.base import JobScheduler
 
 
 class FakeJobScheduler(JobScheduler):
