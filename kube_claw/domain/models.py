@@ -1,4 +1,5 @@
 import uuid
+import enum
 from dataclasses import dataclass, field
 from typing import Any
 from datetime import datetime, timezone
@@ -44,23 +45,19 @@ class WorkspaceContext(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
-class SandboxStatus(BaseModel):
-    """
-    The current state of a sandbox/lane.
-    """
-
-    is_running: bool
-    last_known_status: str
-    connection_endpoint: str | None = None  # A2A UDS path or TCP address
-    mcp_endpoint: str | None = None  # MCP UDS path
-    metadata: dict[str, Any] = Field(default_factory=dict)
+class EventType(enum.StrEnum):
+    THOUGHT = "thought"
+    TOKEN = "token"
+    ARTIFACT = "artifact"
+    STATUS = "status"
+    ERROR = "error"
 
 
 @dataclass(frozen=True)
 class OrchestratorEvent:
     """An event emitted by the Orchestrator to be sent back to the Gateway."""
 
-    type: str  # "thought", "token", "artifact", "status", "error"
+    type: EventType
     content: Any
     message_id: str | None = None
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))

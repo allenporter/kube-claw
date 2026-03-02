@@ -5,7 +5,7 @@ KubeClaw Local TUI — Terminal User Interface.
 A simple interactive console that connects to the KubeClaw Host process
 and provides a local development loop:
 
-  User types message → Host routes to Worker → Worker (LLM) responds → TUI displays
+  User types message → Host routes to Embedded Agent → Agent responds → TUI displays
 
 Usage:
   GOOGLE_API_KEY=... python3 script/local_tui.py [--workspace /path/to/workspace]
@@ -44,7 +44,7 @@ logger = logging.getLogger("claw.tui")
 def print_banner() -> None:
     print(f"""
 {CYAN}{BOLD}  🐾 KubeClaw Local Loop{RESET}
-{DIM}  Milestone 1 — Single Worker + ADK + MCP
+{DIM}  Embedded Executor — ADK Agent + adk-coder tools
   Type a message to interact with the agent.
   Press Ctrl+C to quit.{RESET}
 """)
@@ -86,7 +86,6 @@ async def main() -> None:
     host = ClawHost(workspace_path=args.workspace)
     await host.setup_default_binding(workspace_path=args.workspace)
 
-    print(f"{DIM}  RPC dir: {host.rpc_dir}{RESET}")
     print(f"{DIM}  Ready!{RESET}\n")
 
     try:

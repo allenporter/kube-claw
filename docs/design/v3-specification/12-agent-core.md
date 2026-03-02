@@ -148,8 +148,8 @@ KubeClaw depends on `adk-cli` as a library and imports from it directly:
 
 ```python
 # kube_claw/orchestrator/orchestrator.py
-from adk_cli.agent_factory import build_adk_agent
-from adk_cli.summarize import summarize_tool_call
+from adk_coder.agent_factory import build_adk_agent
+from adk_coder.summarize import summarize_tool_call
 ```
 
 **Pros**: Zero extraction work. Immediate reuse.

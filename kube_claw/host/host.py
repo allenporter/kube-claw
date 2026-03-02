@@ -3,14 +3,13 @@ KubeClaw Host Process — The Control Plane.
 
 The host is the long-running process that:
 - Manages the BindingTable (identity → workspace mapping).
-- Manages sandboxes (provisioning workers as subprocesses).
-- Runs the A2A Orchestrator (routing messages to workers).
-- Hosts the MCP server (proxied tools with credential hydration).
-- Provides an interface for channels (TUI, Discord, etc.) to connect.
+- Runs the Embedded Orchestrator (in-process agent execution).
+- Provides an interface for channel adapters (TUI, Discord, etc.).
+
+See: ADR-004 (Embedded Executor Architecture)
 """
 
 import logging
-import tempfile
 from collections.abc import AsyncIterator
 
 from kube_claw.binding.fakes import InMemoryBindingTable
@@ -20,8 +19,7 @@ from kube_claw.domain.models import (
     OrchestratorEvent,
     WorkspaceContext,
 )
-from kube_claw.sandbox.local import LocalSandboxManager
-from kube_claw.orchestrator.orchestrator import A2AOrchestratorImpl
+from kube_claw.orchestrator.embedded import EmbeddedOrchestrator
 
 logger = logging.getLogger(__name__)
 
@@ -30,20 +28,19 @@ class ClawHost:
     """
     The KubeClaw Host process.
 
-    Wires together the binding table, sandbox manager, and orchestrator.
-    Provides a simple interface for channel clients (TUI, Discord, etc.).
+    Wires together the binding table and embedded orchestrator.
+    Provides a simple interface for channel adapters (TUI, Discord, etc.).
     """
 
-    def __init__(self, workspace_path: str | None = None) -> None:
-        # Use a temp dir for all worker UDS sockets
-        self._rpc_dir = tempfile.mkdtemp(prefix="kube_claw_")
-        logger.info(f"RPC socket directory: {self._rpc_dir}")
-
+    def __init__(
+        self,
+        workspace_path: str | None = None,
+        model: str | None = None,
+    ) -> None:
         self._binding_table = InMemoryBindingTable()
-        self._sandbox_manager = LocalSandboxManager(base_rpc_dir=self._rpc_dir)
-        self._orchestrator = A2AOrchestratorImpl(
+        self._orchestrator = EmbeddedOrchestrator(
             binding_table=self._binding_table,
-            sandbox_manager=self._sandbox_manager,
+            model=model,
         )
         self._workspace_path = workspace_path
 
@@ -60,7 +57,7 @@ class ClawHost:
             workspace_id=f"workspace-{channel_id}",
             metadata={
                 "workspace_path": ws_path,
-                "status": "provisioned",
+                "status": "ready",
             },
         )
         await self._binding_table.update_binding(
@@ -90,12 +87,5 @@ class ClawHost:
             yield event
 
     async def shutdown(self) -> None:
-        """Clean up all sandboxes and resources."""
-        active = await self._sandbox_manager.list_active_sandboxes()
-        for wid in active:
-            await self._sandbox_manager.terminate(wid)
+        """Clean up resources."""
         logger.info("Host shutdown complete.")
-
-    @property
-    def rpc_dir(self) -> str:
-        return self._rpc_dir

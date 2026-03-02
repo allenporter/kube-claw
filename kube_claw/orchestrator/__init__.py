@@ -1,3 +1,3 @@
-from .orchestrator import A2AOrchestratorImpl
+from .embedded import EmbeddedOrchestrator
 
-__all__ = ["A2AOrchestratorImpl"]
+__all__ = ["EmbeddedOrchestrator"]

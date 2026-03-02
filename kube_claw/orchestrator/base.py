@@ -4,12 +4,10 @@ Orchestrator Interface
 This module defines the central 'Brain' of the Claw Core v3 architecture.
 
 The Orchestrator is responsible for:
-1. Receiving inbound messages (intents) from a Gateway.
+1. Receiving inbound messages (intents) from a Gateway / ChannelAdapter.
 2. Resolving the User/Channel to a Workspace via the BindingTable.
-3. Provisioning/Resuming a Sandbox via the SandboxManager.
-4. Managing the bidirectional RPC stream (A2A Protocol) between the Host and Worker.
-5. Handling 'Tool Hydration' for host-proxied tools (Slack, GitHub, etc.).
-6. Streaming thoughts and results back to the original Gateway.
+3. Invoking the embedded agent executor (ADK LlmAgent).
+4. Streaming thoughts and results back to the caller as OrchestratorEvents.
 """
 
 from abc import ABC, abstractmethod
@@ -33,14 +31,13 @@ class Orchestrator(ABC):
         The primary entrypoint for the orchestrator.
 
         This method should:
-        - Resolve the workspace.
-        - Start the sandbox.
-        - Connect to the RPC socket.
-        - Stream the worker's thoughts and tool results back as OrchestratorEvents.
+        - Resolve the workspace via the BindingTable.
+        - Invoke the embedded agent executor.
+        - Stream thoughts and results back as OrchestratorEvents.
         """
         pass
 
     @abstractmethod
-    async def shutdown_lane(self, channel_id: str) -> None:
-        """Forcefully shut down a persistent lane."""
+    async def cancel_run(self, lane_key: str) -> None:
+        """Cancel an in-progress agent run for the given lane."""
         pass
