@@ -1,7 +1,7 @@
 """
 Embedded Orchestrator — In-Process Agent Executor.
 
-Implements the Orchestrator interface using adk-cli's agent factory
+Implements the Orchestrator interface using adk-coder's agent factory
 to run the ADK LlmAgent directly in-process. No sandbox, no UDS,
 no A2A protocol — just an async function call.
 
@@ -32,7 +32,7 @@ class EmbeddedOrchestrator(Orchestrator):
     """
     Orchestrator that runs the agent embedded in-process.
 
-    Uses adk-cli's build_adk_agent() to create a fully-configured
+    Uses adk-coder's build_adk_agent() to create a fully-configured
     LlmAgent with tools, skills, and security policies, then runs
     it via ADK's Runner.
     """
@@ -59,10 +59,10 @@ class EmbeddedOrchestrator(Orchestrator):
 
         logger.info(f"Handling message for lane={lane_key}, workspace={workspace_path}")
 
-        # 2. Build agent from adk-cli core
+        # 2. Build agent from adk-coder core
         agent = build_adk_agent(
             model=self._model,
-            # Let adk-cli load AGENTS.md/GEMINI.md from workspace
+            # Let adk-coder load AGENTS.md/GEMINI.md from workspace
         )
 
         # 3. Create session and runner

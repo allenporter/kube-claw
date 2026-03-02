@@ -1,16 +1,16 @@
-# Claw Core v3: Agent Core — Reusing adk-cli as the Embedded Executor
+# Claw Core v3: Agent Core — Reusing adk-coder as the Embedded Executor
 
-This document specifies how KubeClaw's embedded executor ([ADR-004](../../decisions/ADR-004-embedded-executor.md)) will leverage the existing `adk-cli` codebase as its agent core — the "brain" that does the actual coding work.
+This document specifies how KubeClaw's embedded executor ([ADR-004](../../decisions/ADR-004-embedded-executor.md)) will leverage the existing `adk-coder` codebase as its agent core — the "brain" that does the actual coding work.
 
 ---
 
 ## 1. The Analogy
 
-OpenClaw calls `runEmbeddedPiAgent()` which invokes `pi-agent-core` — their full-featured LLM SDK with tools, plugins, and session management. KubeClaw should do the same with `adk-cli`:
+OpenClaw calls `runEmbeddedPiAgent()` which invokes `pi-agent-core` — their full-featured LLM SDK with tools, plugins, and session management. KubeClaw should do the same with `adk-coder`:
 
 | Layer | OpenClaw | KubeClaw |
 |---|---|---|
-| **Agent Core** | `pi-agent-core` (embedded library) | `adk-cli` agent factory + tools |
+| **Agent Core** | `pi-agent-core` (embedded library) | `adk-coder` agent factory + tools |
 | **Invocation** | `runEmbeddedPiAgent()` | `build_adk_agent()` → `Runner.run_async()` |
 | **Tools** | pi-agent built-in tools | `ls`, `cat`, `edit_file`, `bash`, `grep`, etc. |
 | **Sub-Agents** | pi plugins | `explore_codebase`, `design_architecture`, `review_work` |
@@ -23,7 +23,7 @@ OpenClaw calls `runEmbeddedPiAgent()` which invokes `pi-agent-core` — their fu
 
 ---
 
-## 2. What adk-cli Already Provides
+## 2. What adk-coder Already Provides
 
 ### A. Agent Builder (`agent_factory.py`)
 `build_adk_agent()` creates a fully-configured `LlmAgent`:
@@ -73,7 +73,7 @@ Layered JSON config: `~/.adk/settings.json` (global) merged with `<project>/.adk
 │  Gateway ──► Lane Queue ──► Orchestrator            │
 │                                │                    │
 │                     ┌──────────▼──────────┐         │
-│                     │  adk-cli Agent Core │         │
+│                     │  adk-coder Agent Core │         │
 │                     │                     │         │
 │                     │  build_adk_agent()  │         │
 │                     │  ├─ LlmAgent        │         │
@@ -99,7 +99,7 @@ Layered JSON config: `~/.adk/settings.json` (global) merged with `<project>/.adk
 |---|---|---|
 | **Orchestrator** | `build_adk_agent()` | Import and call; agent core is a library |
 | **Lane Queue** | `Runner` | Orchestrator calls `runner.run_async()` per dequeued message |
-| **Gateway** | `summarize_tool_call/result` | Use adk-cli's summarizers for human-readable streaming |
+| **Gateway** | `summarize_tool_call/result` | Use adk-coder's summarizers for human-readable streaming |
 | **Binding Table** | `SqliteSessionService` | Session ID = `f"{lane_key}:{workspace_id}"` |
 | **PVC Workspace** | `find_project_root()` | Workspace path passed to agent; tools operate on it |
 | **Channel Policy** | `CustomPolicyEngine` | Mode per-channel from KubeClaw config (not UI prompts) |
@@ -112,7 +112,7 @@ Two viable approaches:
 
 ### Option A: Shared Library (Recommended)
 
-Extract the reusable core of `adk-cli` into a package (e.g., `adk-coding-agent`):
+Extract the reusable core of `adk-coder` into a package (e.g., `adk-coding-agent`):
 
 ```
 adk-coding-agent/          # New shared package
@@ -128,7 +128,7 @@ adk-coding-agent/          # New shared package
 │       └── skill-creator/
 └── settings.py            # Layered config loader
 
-adk-cli/                   # CLI stays thin
+adk-coder/                   # CLI stays thin
 ├── main.py                # Click CLI, TUI
 ├── tui.py                 # Textual UI
 └── depends on: adk-coding-agent
@@ -144,7 +144,7 @@ kube-claw/                 # Orchestrator
 
 ### Option B: Direct Dependency
 
-KubeClaw depends on `adk-cli` as a library and imports from it directly:
+KubeClaw depends on `adk-coder` as a library and imports from it directly:
 
 ```python
 # kube_claw/orchestrator/orchestrator.py
@@ -153,15 +153,15 @@ from adk_coder.summarize import summarize_tool_call
 ```
 
 **Pros**: Zero extraction work. Immediate reuse.
-**Cons**: Couples KubeClaw to adk-cli's CLI-specific code (Click, Textual). Package name is misleading.
+**Cons**: Couples KubeClaw to adk-coder's CLI-specific code (Click, Textual). Package name is misleading.
 
 ---
 
 ## 5. Policy Adaptation for Headless Execution
 
-In `adk-cli`, the `SecurityPlugin` prompts the **user via TUI** for confirmation. In KubeClaw (headless), this needs adaptation:
+In `adk-coder`, the `SecurityPlugin` prompts the **user via TUI** for confirmation. In KubeClaw (headless), this needs adaptation:
 
-| adk-cli Mode | KubeClaw Equivalent | Behavior |
+| adk-coder Mode | KubeClaw Equivalent | Behavior |
 |---|---|---|
 | `ask` | Channel confirm | Send confirmation request to user's channel; block until reply |
 | `auto` | Fully autonomous | Allow all tools (for trusted workspaces) |
@@ -173,7 +173,7 @@ The `CustomPolicyEngine` is already decoupled from the TUI — it returns `Polic
 
 ## 6. Configuration — Extending Settings for KubeClaw
 
-`adk-cli`'s settings system supports two fields today: `default_model` and `permission_mode`. KubeClaw extends this with queue and channel config:
+`adk-coder`'s settings system supports two fields today: `default_model` and `permission_mode`. KubeClaw extends this with queue and channel config:
 
 ```yaml
 # .kube-claw.yaml (project-level) or ~/.kube-claw/config.yaml (global)
@@ -237,6 +237,6 @@ mcp:
 
 ## 8. Open Questions
 
-1. **Package name**: `adk-coding-agent`? `adk-agent-core`? Or just keep importing from `adk-cli`?
-2. **YAML vs JSON settings**: `adk-cli` uses JSON today. YAML is more readable for nested config. Migrate or support both?
-3. **Session DB sharing**: Should KubeClaw's `SqliteSessionService` share the same `~/.adk/sessions.db` as `adk-cli`, or use a separate store?
+1. **Package name**: `adk-coding-agent`? `adk-agent-core`? Or just keep importing from `adk-coder`?
+2. **YAML vs JSON settings**: `adk-coder` uses JSON today. YAML is more readable for nested config. Migrate or support both?
+3. **Session DB sharing**: Should KubeClaw's `SqliteSessionService` share the same `~/.adk/sessions.db` as `adk-coder`, or use a separate store?

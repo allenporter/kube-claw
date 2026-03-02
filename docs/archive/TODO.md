@@ -18,9 +18,9 @@
 - [ ] Implement PVC-based workspace persistence for jobs
 
 ## Tooling & Infrastructure
-- [ ] Fix `adk-cli` built-in skill packaging.
-- [ ] Fix `adk-cli` bug where if a subprocess is killed the whole program crashes. maybe need an option to handle timeouts or canceling command in flight.
-- [ ] Add `adk-cli` support for switching models in the middle of conversation
+- [ ] Fix `adk-coder` built-in skill packaging.
+- [ ] Fix `adk-coder` bug where if a subprocess is killed the whole program crashes. maybe need an option to handle timeouts or canceling command in flight.
+- [ ] Add `adk-coder` support for switching models in the middle of conversation
 - [ ] Add `code-explorer` skill if missing.
 
 - [ ] Implement Claw-RPC Handler in `kube_claw/agent.py` (Host side).

@@ -35,7 +35,7 @@ The `system_instruction.md` outlines a philosophy for the agent's behavior.
 - **GitOps**: All significant changes must be version-controlled, implying that the agent's primary "memory" or "record of truth" should be a Git repository.
 
 ## 5. Technical Constraints & Stack
-- **Framework**: Driven by `adk-cli` (Google ADK).
+- **Framework**: Driven by `adk-coder` (Google ADK).
 - **Communication**: Discord (`discord.py`) is the primary interface.
 - **Orchestration**: Kubernetes (`kubernetes` python client).
 - **Asyncio**: The entire system is built on `asyncio` for non-blocking I/O across communication and polling.
@@ -43,5 +43,5 @@ The `system_instruction.md` outlines a philosophy for the agent's behavior.
 ## Summary for Future Design
 When evolving Claw, we should maintain the **Controller-Driver** separation, but potentially improve:
 1.  **Polling Efficiency**: Move from active polling of Kubernetes jobs to event-based watching using Kubernetes Informers/Watchers.
-2.  **Tool Integration**: Deeper integration with `adk-cli` tools (ls, cat, edit) as first-class capabilities within the scheduled jobs.
+2.  **Tool Integration**: Deeper integration with `adk-coder` tools (ls, cat, edit) as first-class capabilities within the scheduled jobs.
 3.  **Unified State**: formalize how PVCs are shared or partitioned between the main agent and the worker jobs.
