@@ -45,20 +45,20 @@ This document defines the "Gold Standard" for a tool-capable LLM orchestrator, s
 ## 3. Key Functional Innovations
 
 ### I. The "Lane" Handshake (Identity & Auth)
-When an intent enters a lane, the controller performs a **Session Handshake** to resolve identity and inject capabilities:
+When an intent enters a lane, the orchestrator performs a **Session Handshake** to resolve identity and inject capabilities:
 
 1.  **Resolve Actor Identity**:
     *   Map the inbound protocol ID (e.g., Discord Snowflake `12345`) to a **Claw Identity**.
     *   **Scenario (Discord)**: User A in `#project-alpha` maps to `Identity: Dev-A` with `Workspace: /repo/alpha`.
 2.  **Authorize Capabilities**:
     *   Fetch the **Auth Profile** associated with the Identity.
-    *   **Direct Credentials**: For CLI tools (e.g., GitHub `gh`), inject scoped tokens (e.g., `GITHUB_TOKEN`) into sandbox environment variables.
-    *   **Proxied Capabilities**: For API-based tools (e.g., Slack, Stripe), keep tokens on the Host. The Host will "hydrate" these calls via RPC during execution.
-3.  **Spawn/Wake Sandbox**:
-    *   Initialize the backend with the correct mounts (Project Alpha).
-    *   Inject the `Auth Profile` credentials into the sandbox shell environment.
+    *   **Direct Credentials**: For CLI tools (e.g., GitHub `gh`), inject scoped tokens (e.g., `GITHUB_TOKEN`) into the executor environment.
+    *   **Proxied Capabilities**: For API-based tools (e.g., Slack, Stripe), access via external MCP servers with host-managed credentials.
+3.  **Load Workspace Context**:
+    *   Mount the PVC-backed workspace with the correct project files.
+    *   Load the `AGENTS.md` from the project root for workspace-specific system prompt.
 4.  **Contextual Memory**:
-    *   Load the `CLAUDE.md` from the project root and the session-specific history from `.claude/`.
+    *   Load session history from the session store and project-level instructions.
 
 ### II. Multi-Channel Identity Mapping
 To handle a user working across multiple projects/channels, the Core uses a **Binding Table**:

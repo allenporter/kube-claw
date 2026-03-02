@@ -1,6 +1,6 @@
 # Design Gaps & Remaining Work
 
-This document captures open design areas identified by comparing the KubeClaw v3 architecture against insights from the [OpenClaw Architecture blog post](https://theagentstack.substack.com/p/openclaw-architecture-part-1-control). Each section describes a concept that OpenClaw supports but KubeClaw has not yet formalized.
+This document captures open design areas identified by comparing the KubeClaw architecture against insights from the [OpenClaw Architecture blog post](https://theagentstack.substack.com/p/openclaw-architecture-part-1-control).
 
 ---
 
@@ -12,11 +12,11 @@ This document captures open design areas identified by comparing the KubeClaw v3
 
 ## 2. Heartbeat as Input Trigger
 
-**Problem**: Our `status.heartbeat` ([03-worker-host-rpc.md](./03-worker-host-rpc.md)) is Worker→Host liveness signaling. It does _not_ trigger agent reasoning.
+**Problem**: Heartbeats should be actual **input events** that trigger agent reasoning, not just liveness checks.
 
-**OpenClaw's Approach**: Host→Agent heartbeats are actual **input events** that trigger full agent turns. The agent either performs useful work or responds with `HEARTBEAT_OK`. Default cadence: 30 minutes.
+**OpenClaw's Approach**: Host→Agent heartbeats trigger full agent turns. The agent either performs useful work or responds with `HEARTBEAT_OK`. Default cadence: 30 minutes.
 
-**Our Gap**: The Pulse system ([01-high-level-spec.md §3.III](./01-high-level-spec.md)) covers Cron-based scheduling, but lacks a protocol-level heartbeat input. We should consider adding a Host→Worker `heartbeat.trigger` RPC method that the Pulse can use to wake idle agents for periodic checks.
+**Gap**: The Pulse system ([01-high-level-spec.md §3.III](./01-high-level-spec.md)) covers Cron-based scheduling, but lacks a protocol-level heartbeat input. A `heartbeat.trigger` event type should be supported by the orchestrator so the Pulse can wake idle agents for periodic checks.
 
 **Status**: Open
 
@@ -24,7 +24,7 @@ This document captures open design areas identified by comparing the KubeClaw v3
 
 ## 3. Hook System (Filesystem-Discovered Automation)
 
-**Problem**: We have no mechanism for workspace-level event automation.
+**Problem**: No mechanism for workspace-level event automation.
 
 **OpenClaw's Approach**: Hooks are event-driven scripts discovered from multiple directories:
 - **Workspace hooks**: Agent-specific (in the workspace)
@@ -33,7 +33,7 @@ This document captures open design areas identified by comparing the KubeClaw v3
 
 Hooks fire on events like `pre_tool_use`, `post_tool_use`, `on_message`, etc.
 
-**Our Gap**: Our PreToolUse/PreCompact hooks are referenced in [deep-research.md §5](../../research/deep-research.md) but never formalized in the v3 spec. We need a hook discovery and execution model — especially for security sanitization (e.g., unsetting API keys before `bash` runs).
+**Gap**: We need a hook discovery and execution model — especially for security sanitization (e.g., unsetting API keys before `bash` runs).
 
 **Status**: Open
 
@@ -47,13 +47,9 @@ Hooks fire on events like `pre_tool_use`, `post_tool_use`, `on_message`, etc.
 
 ## 5. Protocol Versioning
 
-**Problem**: Our A2A/MCP handshakes don't include version negotiation.
+**Problem**: As internal APIs evolve, we risk breaking backward compatibility during rolling upgrades.
 
-**OpenClaw's Approach**: The WebSocket `connect` frame includes protocol version. Client and server negotiate capabilities at connection time.
-
-**Our Gap**: The Worker `bootstrap` handshake ([09-worker-entrypoint.md](./09-worker-entrypoint.md)) sends identity, workspace, and LLM config but no protocol version. As the A2A and MCP interfaces evolve, we risk breaking backward compatibility with running workers during rolling upgrades.
-
-**Recommendation**: Add a `protocol_version` field to the `bootstrap` message and define a version negotiation strategy.
+**Recommendation**: Add a `protocol_version` field to configuration and define a version negotiation strategy for external MCP server connections.
 
 **Status**: Open
 
@@ -66,17 +62,15 @@ Hooks fire on events like `pre_tool_use`, `post_tool_use`, `on_message`, etc.
 **OpenClaw's Approach**: Provides `openclaw security audit` CLI command that checks for:
 - Exposed gateway without token auth
 - DM mode settings
-- Sandbox bypass risks
 - Dangerous skill installations
 
-**Our Gap**: We have a sandbox boundary spec TODO in [05-design-todos.md §4](./05-design-todos.md), but no CLI-level audit tool. A `kube-claw security audit` command should check:
+**Gap**: A `kube-claw security audit` command should check:
 - Network policies on agent pods
 - PVC mount permissions
-- Exposed MCP/A2A sockets
 - Auth profile scoping
-- Direct-mount credential exposure risk
+- Permission mode configuration
 
-**Status**: Open — depends on sandbox boundary specification
+**Status**: Open
 
 ---
 

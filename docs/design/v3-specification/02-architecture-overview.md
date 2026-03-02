@@ -13,7 +13,7 @@ At its core, a Claw system is an event-driven, session-isolated, single-writer s
 | **Time** | Heartbeats + Cron schedules that create proactive triggers | The Pulse (background scheduler) |
 | **Events** | Messages + Hooks + Webhooks that drive reactive work | Inbound Gateway (multi-channel normalization) |
 | **State** | Sessions + Workspace memory that persist across turns | PVC-backed workspaces + Binding Table |
-| **Loop** | Agent turns: _read → decide → act → write_ | Worker Entrypoint (A2A reasoning loop) |
+| **Loop** | Agent turns: _read → decide → act → write_ | Embedded Executor (adk-coder agent loop) |
 
 When people ask whether agents are "alive," the real questions are: *What events wake them? What state do they own? What invariants do they enforce? What tools can they execute?*
 
@@ -76,9 +76,9 @@ graph TD
 
 A robust Claw Core is built on four pillars that move it beyond a simple chatbot into a functional autonomous agent.
 
-### I. Isolation (The Sandbox Principle)
-*   **Definition**: The agent must never execute code directly on the host system.
-*   **Requirement**: All tool executions (Bash, Filesystem, Browser) must occur within an isolated container (Docker, Podman, or similar).
+### I. Isolation (The Workspace Principle)
+*   **Definition**: The agent's tool executions are scoped to its assigned workspace.
+*   **Requirement**: All tool executions (Bash, Filesystem) operate within a PVC-mounted workspace. K8s Pod isolation provides the OS-level boundary.
 *   **Goal**: Protect host credentials, sensitive data, and system stability from potentially destructive or hallucinated agent actions.
 
 ### II. Persistence (The Memory Principle)

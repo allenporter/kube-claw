@@ -15,7 +15,7 @@ OpenClaw calls `runEmbeddedPiAgent()` which invokes `pi-agent-core` — their fu
 | **Tools** | pi-agent built-in tools | `ls`, `cat`, `edit_file`, `bash`, `grep`, etc. |
 | **Sub-Agents** | pi plugins | `explore_codebase`, `design_architecture`, `review_work` |
 | **Skills** | — | `SkillToolset` (Markdown-based extensible skills) |
-| **Security** | sandboxed execution | `CustomPolicyEngine` (`ask`/`auto`/`plan` modes) |
+| **Security** | sandbox isolation | `CustomPolicyEngine` (`ask`/`auto`/`plan` modes) + K8s Pod isolation |
 | **Session** | `SessionManager` (JSONL) | `SqliteSessionService` (SQLite) |
 | **Compaction** | manual summarization | `EventsCompactionConfig` (auto at token threshold) |
 | **Retry / Rate Limiting** | built-in | `AdkRetryGemini` (parses Google API retry headers) |
@@ -216,22 +216,19 @@ mcp:
 
 ---
 
-## 7. What Changes in KubeClaw
+## 7. Module Layout
 
-### Replace
-- `kube_claw/worker/executor.py` → Import `build_adk_agent()` from agent core
-- `kube_claw/worker/` directory → No longer needed as separate module
-- `kube_claw/sandbox/` directory → Drop entirely (no container lifecycle)
+The KubeClaw codebase is structured around the embedded executor model:
 
-### Simplify
-- `kube_claw/orchestrator/orchestrator.py` → Remove sandbox provisioning, UDS transport, A2A bridging. Call `Runner.run_async()` directly
-- `kube_claw/domain/models.py` → Drop `SandboxStatus`. Keep `InboundMessage`, `OrchestratorEvent`, `WorkspaceContext`
-
-### Keep
-- `kube_claw/binding/` → Binding Table stays
-- `kube_claw/mcp/` → Only if used for external MCP server config
-- `kube_claw/orchestrator/base.py` → Orchestrator interface stays
-- `kube_claw/domain/models.py` → Core domain models stay
+| Module | Purpose |
+|---|---|
+| `kube_claw/orchestrator/embedded.py` | `EmbeddedOrchestrator` — imports `build_adk_agent()`, runs agent via `Runner.run_async()` |
+| `kube_claw/orchestrator/base.py` | Abstract `Orchestrator` interface |
+| `kube_claw/gateway/` | `ChannelAdapter` protocol for Discord, CLI, A2A, GitHub adapters |
+| `kube_claw/host/host.py` | `ClawHost` — wires binding table + orchestrator, provides channel-agnostic interface |
+| `kube_claw/binding/` | `BindingTable` — maps `(protocol, channel_id, author_id)` → `WorkspaceContext` |
+| `kube_claw/domain/models.py` | Core domain types: `InboundMessage`, `OrchestratorEvent`, `ClawIdentity`, `WorkspaceContext` |
+| `kube_claw/mcp/` | External MCP server configuration |
 
 ---
 

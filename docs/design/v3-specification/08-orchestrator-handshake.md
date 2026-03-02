@@ -2,7 +2,6 @@
 
 This document defines the state machine and execution flow for the **Orchestrator**, which coordinates the Gateway, Binding Table, and Agent Executor.
 
-> **Note**: This document was significantly revised to reflect the [Embedded Executor Architecture](../../decisions/ADR-004-embedded-executor.md). The original handshake sequence (UDS, A2A, MCP proxy) has been replaced with an in-process model.
 
 ---
 

@@ -1,24 +1,34 @@
 # Claw Core v3: Tool Strategy & Execution Model
 
-This document defines how tools are classified and executed in the Claw Core v3 architecture. To balance security with developer productivity, we use a **Hybrid Tooling Model**.
+This document defines how tools are classified and executed in the Claw Core architecture. To balance security with developer productivity, we use a **Hybrid Tooling Model**.
 
 ---
 
-## 1. The Hybrid Model: "Direct" vs. "Proxied"
+## 1. The Hybrid Model: "Direct" vs. "External MCP"
 
-| Category | **Direct Execution (Local)** | **Host-Proxied (RPC)** |
+| Category | **Direct Execution (Local)** | **External MCP (Remote)** |
 | :--- | :--- | :--- |
-| **Location** | Inside the Sandbox (Container) | Outside the Sandbox (Host) |
-| **Credential** | **Directly Mounted** (Env Vars / `.netrc`) | **Host-Stored** (Never enters sandbox) |
+| **Location** | In the agent process (subprocess) | External MCP server |
+| **Credential** | **Environment Variables** (scoped tokens) | **MCP server-managed** (tokens configured in server config) |
 | **Examples** | `bash`, `ls`, `git`, `gh` CLI, `python` | `slack.send_message`, `stripe.create_invoice` |
-| **Mechanism** | Standard Python `subprocess` | JSON-RPC `tool.call` to Host |
-| **Risk** | Token exfiltration possible if sandbox is compromised. | Token is physically unreachable from the sandbox. |
+| **Mechanism** | Standard Python `subprocess` via adk-coder tools | MCP client via `McpToolset` |
+| **Risk** | Token exfiltration possible if workspace is compromised | Token is managed by the MCP server, not exposed to the agent |
 
 ---
 
-## 2. Direct Tools (Mounted Credentials)
+## 2. Direct Tools (adk-coder Built-ins)
 
-For tools with powerful CLIs (like GitHub or AWS), we mount **Short-Lived, Scoped Credentials** directly into the sandbox. This allows the LLM to use the full power of existing ecosystems without us writing a custom API wrapper for every function.
+The agent executor uses adk-coder's 12 built-in tools for workspace operations:
+
+| Tool | Category | Default Policy |
+|---|---|---|
+| `ls`, `cat`, `read_many_files`, `grep` | Read | Allow |
+| `write_file`, `edit_file` | Write | Confirm |
+| `bash` | Shell | Confirm (with safe-command allowlist) |
+| `explore_codebase` | Sub-Agent | Allow |
+| `design_architecture`, `review_work` | Sub-Agent | Allow |
+
+For tools that need credentials (like GitHub `gh` CLI), **Short-Lived, Scoped Credentials** are injected as environment variables.
 
 ### GitHub Strategy:
 - **Credential**: Fine-grained GitHub PAT or GitHub App Installation Token.
@@ -27,78 +37,29 @@ For tools with powerful CLIs (like GitHub or AWS), we mount **Short-Lived, Scope
 
 ---
 
-## 3. Host-Proxied Tools (Hydrated via RPC)
+## 3. External MCP Tools (Remote Servers)
 
-For messaging platforms (Slack, Discord) or infrastructure (DigitalOcean, AWS Route53), we keep the credentials on the Host. The worker requests execution via RPC using "magic values" for addressing.
+For messaging platforms (Slack, Discord) or infrastructure (DigitalOcean, AWS), tools are accessed via external MCP servers configured in `.kube-claw.yaml`:
 
-- **`"current"`**: Resolves to the specific Channel or User ID associated with the active session.
-- **`"auto"`**: Let the host decide the best default.
-
-### Slack Tools (`slack.*`)
-
-#### `slack.send_message`
-Sends a message to a Slack channel.
-**Request:**
-```json
-{
-  "channel": "current", // or "#channel-name"
-  "text": "Task complete!"
-}
+```yaml
+mcp:
+  servers:
+    - name: github
+      command: ["npx", "@modelcontextprotocol/server-github"]
+      env:
+        GITHUB_TOKEN: ${GITHUB_TOKEN}
+    - name: slack
+      command: ["npx", "@modelcontextprotocol/server-slack"]
+      env:
+        SLACK_BOT_TOKEN: ${SLACK_BOT_TOKEN}
 ```
+
+The agent connects to these via `McpToolset` at startup.
 
 ---
 
-## 4. The "Hacker Suite" (Hacker-Relevant Proxied Tools)
+## 4. Security Enforcement & Auditing
 
-### Research & Intelligence (`research.*`)
-
-#### `research.web_search`
-Perform a web search using a search engine API (Hydrated by Host).
-**Request:**
-```json
-{
-  "query": "CVE-2023-XXXX exploit POC",
-  "engine": "auto"
-}
-```
-
-#### `research.screenshot`
-Capture a screenshot of a URL using a headless browser (Executed on Host).
-**Request:**
-```json
-{
-  "url": "https://example.com/target-page",
-  "full_page": true
-}
-```
-
-### Infrastructure & Networking (`infra.*`)
-
-#### `infra.provision_lab`
-Spin up a temporary research environment (e.g., via Terraform/Cloud Hydrated by Host).
-**Request:**
-```json
-{
-  "template": "basic-vps",
-  "provider": "auto",
-  "tags": ["temp-lab", "project-x"]
-}
-```
-
-#### `infra.get_secret`
-Retrieve a secret from the Host's vault (Hydrated with Identity Check).
-**Request:**
-```json
-{
-  "secret_name": "target_api_key",
-  "scope": "read-only"
-}
-```
-
----
-
-## 5. Security Enforcement & Auditing
-
-1.  **Identity Check**: Every RPC request is verified against the `SandboxID -> BindingTable` mapping.
-2.  **Scope Check**: The Host verifies that the `AuthProfile` contains the necessary scopes before executing a proxied tool.
-3.  **Approval Flow**: High-risk tools (e.g., `git push` to `main` or `aws.terminate_instance`) trigger a `tool.approval_request` RPC back to the user before the Host/Worker proceeds.
+1.  **Policy Engine**: The `CustomPolicyEngine` gates tool execution based on the configured mode (`ask`/`auto`/`plan`).
+2.  **Scope Check**: Auth profiles contain scoped credentials — the agent can only access resources within its assigned workspace.
+3.  **Approval Flow**: In `ask` mode, high-risk tools (e.g., `bash git push`, `write_file`) trigger a confirmation request routed to the user's channel.

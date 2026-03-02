@@ -119,30 +119,18 @@ Queue modes define **what happens when a new message arrives while the agent is 
 
 ## 4. Steer Semantics (Detailed Contract)
 
-The `steer` mode requires careful coordination between Host and Worker.
+The `steer` mode requires careful coordination within the orchestrator.
 
 ### Protocol
 
-1. New message arrives at the Host for a lane with an active run
-2. Host enqueues the message as a **steer event** for the active run
-3. Host sends `input.steer` notification to the Worker via A2A:
-   ```json
-   {
-     "jsonrpc": "2.0",
-     "method": "input.steer",
-     "params": {
-       "message_id": "msg_456",
-       "content": "Actually, fix the auth module instead",
-       "author": {"id": "user_789", "name": "Alice"}
-     }
-   }
-   ```
-4. Worker checks its steer queue **after each tool call completes**
-5. If a steer message exists:
+1. New message arrives at the Gateway for a lane with an active run
+2. Orchestrator enqueues the message as a **steer event** for the active run
+3. At the next tool boundary, the executor checks its steer queue
+4. If a steer message exists:
    - **Skip** remaining tool calls from the current assistant message
    - **Inject** the user message into conversation history
    - **Resume** the LLM loop with the new context
-6. If no steer message: continue with the next tool call normally
+5. If no steer message: continue with the next tool call normally
 
 ### Safety Guarantees
 - Tool calls that are **in-flight** are never aborted mid-execution
@@ -241,43 +229,17 @@ This also resolves [design gap §4 (Secure DM Mode)](./10-design-gaps.md).
 
 ## 7. Idempotency
 
-Side-effecting RPC methods should support optional idempotency keys to ensure retries don't produce duplicate actions.
+Side-effecting operations should support optional idempotency keys to ensure retries don't produce duplicate actions.
 
-### Applicable Methods
+### Applicable Operations
 
-| Method | Risk Without Idempotency |
+| Operation | Risk Without Idempotency |
 |---|---|
-| `output.stream` | Duplicate message fragments sent to user |
-| `tool.call` | Tool executed twice (e.g., double Slack message) |
-| `output.final` | Duplicate final responses |
+| Event streaming to channel | Duplicate message fragments sent to user |
+| External tool call | Tool executed twice (e.g., double Slack message) |
+| Final response delivery | Duplicate final responses |
 
-### Mechanism
-
-```json
-{
-  "jsonrpc": "2.0",
-  "method": "tool.call",
-  "id": "call_abc",
-  "params": {
-    "tool": "slack.send_message",
-    "arguments": {"text": "Deploy complete!", "channel": "current"},
-    "idempotency_key": "idem_abc123"
-  }
-}
-```
-
-The Host maintains a short-lived result cache keyed by `idempotency_key`. If a duplicate request arrives, it returns the cached result without re-executing.
-
----
-
-## 8. Relationship to Existing Design
-
-| Existing Doc | What Changes |
-|---|---|
-| [04-open-questions.md Q4](./04-open-questions.md) | **Resolved** — queue modes formalize interruption behavior |
-| [08-orchestrator-handshake.md §4](./08-orchestrator-handshake.md) | **Superseded** — "Stop & Resume" is now defined by queue modes |
-| [10-design-gaps.md §1](./10-design-gaps.md) | **Resolved** — queue behavior modes fully designed |
-| [10-design-gaps.md §4](./10-design-gaps.md) | **Resolved** — lane key composition addresses secure DM mode |
+The orchestrator maintains a short-lived result cache keyed by idempotency key. If a duplicate request arrives, it returns the cached result without re-executing.
 
 ---
 
