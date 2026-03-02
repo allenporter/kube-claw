@@ -1,7 +1,9 @@
 # ADR-001: Adoption of A2A Protocol for Host-Worker Communication
 
 ## Status
-Proposed
+Superseded by [ADR-004: Embedded Executor Architecture](./ADR-004-embedded-executor.md)
+
+> **Note**: A2A is no longer used for internal host-worker communication. It may be used in the future as an external-facing API for inter-agent interoperability.
 
 ## Context
 Claw Core v3 requires a robust, bidirectional communication protocol between the **Host** (orchestrator) and the **Worker** (sandboxed agent). Initially, we considered a custom JSON-RPC schema ("Claw-RPC"). However, we need to handle:

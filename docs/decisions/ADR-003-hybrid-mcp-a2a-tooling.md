@@ -1,7 +1,9 @@
 # ADR-003: Hybrid Tool Dispatch via MCP and A2A
 
 ## Status
-Proposed
+Superseded by [ADR-004: Embedded Executor Architecture](./ADR-004-embedded-executor.md)
+
+> **Note**: MCP is retained for connecting to *external* tool servers only. The dual-socket (A2A + MCP over UDS) model is dropped.
 
 ## Context
 The "Claw Core v3" architecture requires a way for sandboxed workers to execute tools. Some tools (e.g., `bash`, `git`) should run locally within the sandbox for performance and direct filesystem access. Other tools (e.g., Slack, GitHub API) require high-security credentials that should never enter the sandbox.

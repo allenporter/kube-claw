@@ -1,6 +1,6 @@
 # Claw Core Project Documentation
 
-This directory contains the documentation for the **Claw Core** project, an orchestration framework for tool-capable LLM agents in sandboxed environments.
+This directory contains the documentation for the **Claw Core** project, an orchestration framework for tool-capable LLM agents.
 
 ## Directory Structure
 
@@ -21,24 +21,24 @@ Technical specifications and architectural blueprints for the current version.
 *   [**v3 Specification (Core)**](./design/v3-specification/)
     *   [High-Level Spec](./design/v3-specification/01-high-level-spec.md)
     *   [Architecture Overview](./design/v3-specification/02-architecture-overview.md)
-    *   [Worker-Host RPC](./design/v3-specification/03-worker-host-rpc.md)
     *   [Open Questions](./design/v3-specification/04-open-questions.md)
     *   [Design TODOs](./design/v3-specification/05-design-todos.md)
-    *   [UDS in Kubernetes](./design/v3-specification/06-uds-k8s-design.md)
     *   [Tool Strategy & Execution](./design/v3-specification/07-tool-schemas.md)
-    *   [Orchestrator Handshake & Lifecycle](./design/v3-specification/08-orchestrator-handshake.md)
-    *   [Worker Entrypoint & Sandbox Boundary](./design/v3-specification/09-worker-entrypoint.md)
+    *   [Orchestrator Lifecycle](./design/v3-specification/08-orchestrator-handshake.md)
     *   [Design Gaps & Remaining Work](./design/v3-specification/10-design-gaps.md)
     *   [Queue & Concurrency Model](./design/v3-specification/11-queue-concurrency.md)
+    *   [Agent Core Integration](./design/v3-specification/12-agent-core.md)
 
 ### [📂 4. Decisions](./decisions/)
 Formal Architectural Decision Records (ADRs) and finalized pivots.
-*   [ADR-001: Adoption of A2A Protocol](./decisions/ADR-001-A2A-Protocol.md)
+*   [ADR-001: A2A Protocol](./decisions/ADR-001-A2A-Protocol.md) *(superseded)*
 *   [ADR-002: Modular Isolation & Testability](./decisions/002-modular-isolation.md)
-*   [ADR-003: Hybrid Tool Dispatch via MCP and A2A](./decisions/ADR-003-hybrid-mcp-a2a-tooling.md)
+*   [ADR-003: Hybrid Tool Dispatch](./decisions/ADR-003-hybrid-mcp-a2a-tooling.md) *(superseded)*
+*   [ADR-004: Embedded Executor Architecture](./decisions/ADR-004-embedded-executor.md) ✅
 
 ### [📂 Archive](./archive/)
 Obsolete plans, historical notes, and old task lists.
+*   [v3 Superseded](./archive/v3-superseded/) — Worker-Host RPC, UDS design, Worker Entrypoint
 
 ---
-*Last Updated: 2026-03-01 — Updated doc index; added design gaps*
+*Last Updated: 2026-03-02 — Architecture simplified to embedded executor (ADR-004)*

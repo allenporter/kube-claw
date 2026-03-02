@@ -29,44 +29,45 @@ graph TD
         EM[Email]
     end
 
-    subgraph "Claw Host (Control Plane)"
+    subgraph "KubeClaw Process"
         Gateway[Inbound Gateway]
-        Runtime[A2A Orchestrator]
+        Queue[Lane Queue]
+        Orchestrator[Orchestrator]
+        Executor[Agent Executor / ADK]
         DB[(Binding Table / SQLite)]
-        MCPServer[MCP Tool Server]
+        Tools[Direct Tools: Bash / Git]
     end
 
-    subgraph "The Sandbox (Data Plane)"
-        Container[ADK Agent Worker]
-        DirectTools[Direct Tools: Bash / Git]
-        Workspace[PVC: Project Files / CLAUDE.md]
-    end
+    ExtMCP[External MCP Servers]
+    Workspace[(PVC: Workspace Files)]
 
     %% Flow
     WA & DS & EM -->|Trigger| Gateway
     Gateway -->|Resolve Identity| DB
-    Gateway -->|A2A Task| Runtime
-    Runtime -->|Mount PVC / Inject Direct Creds| Container
-    Container <-->|Local Exec| DirectTools
-    Container <-->|MCP Tool Call| MCPServer
-    MCPServer -->|Hydrated API Calls| ProxiedTools
-    DirectTools <-->|Modify| Workspace
-    Runtime -.->|Stream| WA & DS & EM
+    Gateway -->|Enqueue| Queue
+    Queue -->|Dequeue| Orchestrator
+    Orchestrator -->|In-Process Call| Executor
+    Executor <-->|Local Exec| Tools
+    Executor <-->|MCP Client| ExtMCP
+    Tools <-->|Modify| Workspace
+    Orchestrator -.->|Stream Events| Gateway
+    Gateway -.->|Reply| WA & DS & EM
 ```
 
-## 2. Core Protocols
+> **Embedded Executor Model** ([ADR-004](../../decisions/ADR-004-embedded-executor.md)): The Gateway, Orchestrator, and Agent Executor run in a single process. There is no container boundary, no UDS, and no inter-process protocol between them.
 
-The system uses two primary protocols for Host-Worker communication:
+## 2. Protocols
 
-### I. A2A (Agent-to-Agent) - Orchestration Plane
-*   **Role**: Manages the high-level task lifecycle (Submitted, Working, Input Required, Completed).
-*   **Socket**: `/rpc/worker.sock` (UDS)
-*   **Implementation**: Used by the Host to send prompts and receive status/thought updates from the Worker.
+### MCP (Model Context Protocol) — External Tools Only
+*   **Role**: Connects the Agent Executor to *external* tool servers for API-based tools (GitHub, Slack, etc.).
+*   **Transport**: stdio or HTTP (to external MCP servers)
+*   **Not used internally**: There is no in-process MCP server for "hydration." Direct tools (bash, git) run as subprocesses.
 
-### II. MCP (Model Context Protocol) - Tool Plane
-*   **Role**: Provides a standardized way for the Worker to discover and execute Host-side tools.
-*   **Socket**: `/rpc/mcp.sock` (UDS)
-*   **Implementation**: The Host acts as an MCP Server. The Worker (MCP Client) calls tools like `slack_send` which are then hydrated with host-side credentials.
+### Internal Communication
+*   **Gateway → Orchestrator**: `InboundMessage` (normalized input from any channel)
+*   **Orchestrator → Executor**: Direct async function call
+*   **Executor → Orchestrator**: `OrchestratorEvent` stream (thoughts, results, artifacts)
+*   See [11-queue-concurrency.md](./11-queue-concurrency.md) for queue semantics
 
 ---
 
@@ -101,45 +102,41 @@ A robust Claw Core is built on four pillars that move it beyond a simple chatbot
 
 ## 2. Primary Architectural Components
 
-### A. The Inbound Gateway (The Message Loop)
-The "Ear" of the system. Its primary responsibility is normalization.
-*   **Requirements**:
-    *   **Trigger Detection**: Identify when a message is directed at the agent (e.g., regex matching `@Assistant`).
-    *   **Context Fetching**: Retrieve the last $N$ messages from the database to provide immediate history.
-    *   **Concurrency Control**: Implement a "Group Queue" to ensure that a single session only processes one message at a time to prevent state corruption.
+### A. The Inbound Gateway
+Normalizes all external inputs into `InboundMessage` events.
+*   **Trigger Detection**: Identify when a message is directed at the agent
+*   **Dedupe & Debounce**: Prevent duplicate runs from channel redeliveries; batch rapid text messages
+*   **Lane Key Resolution**: Compute `lane_key` from channel/author (see [11-queue-concurrency.md §6](./11-queue-concurrency.md))
 
-### B. The A2A Orchestrator (The Brain)
-The orchestrator of the "Thought Loop."
-*   **Requirements**:
-    *   **A2A Protocol**: Manage the state machine (`TASK_STATE_WORKING`, `TASK_STATE_INPUT_REQUIRED`, etc.).
-    *   **Prompt Assembly**: Dynamically build the system prompt by merging Global/Local memory files (`CLAUDE.md`) with the current conversation.
-    *   **Streaming IPC**: Handle the delta-stream from the LLM and route it to the user in real-time.
-    *   **MCP Hosting**: Host an MCP server that provides sensitive tools (Slack, GitHub) to the Worker.
-    *   **Identity & Auth Hydration**: Intercept MCP tool calls and inject the user's secure tokens and target IDs before execution.
+### B. The Orchestrator
+Enforces queue invariants and invokes the executor.
+*   **Lane Queue**: Per-session FIFO with single-writer guarantee
+*   **Global Throttle**: Semaphore capping total concurrent runs
+*   **Queue Modes**: `collect` / `followup` / `steer` (see [11-queue-concurrency.md](./11-queue-concurrency.md))
+*   **Context Compaction**: Monitor token usage and trigger summarization when thresholds are exceeded
+*   **Audit Logging**: Record every tool call, input, and output
 
-### C. The Execution Sandbox (The Hand)
-The isolated environment where the work happens.
-*   **Requirements**:
-    *   **ADK Framework**: Run the ADK Agent loop for reasoning and tool dispatching.
-    *   **MCP Client**: Connect to the Host's MCP socket to discover and execute proxied tools.
-    *   **Workspace Management**: Automatically mount the correct host directory (Project Folder) to the container.
-    *   **Safe-Tooling**: Provide a standard set of local ADK skills (Bash, Read/Write File) that run within the container's restricted user space.
-    *   **Persistence**: Ensure that files created by the agent in the container persist on the host (via Volume Mounts).
+### C. The Agent Executor
+Runs the ADK agent loop in-process.
+*   **ADK Framework**: `LlmAgent` with Gemini for reasoning
+*   **Workspace Loading**: Reads `AGENTS.md` from the PVC-mounted workspace for system prompt
+*   **External MCP Tools**: Connects to configured external MCP servers via `McpToolset`
+*   **Direct Tools**: Bash, git, and file operations run as subprocesses
+*   **Event Streaming**: Yields `OrchestratorEvent` (thoughts, results, artifacts) back to the orchestrator
 
-### D. The Stateful Sequencer (The Nervous System)
-The logic that connects the Gateway to the Runtime.
-*   **Requirements**:
-    *   **Session Management**: Track "Active" vs "Idle" containers to optimize resource usage.
-    *   **Compaction Trigger**: Monitor token usage and automatically invoke a "Summarization Run" when thresholds are met.
-    *   **Audit Logging**: Record every tool call, input, and output for later review or debugging.
+### D. The Binding Table
+Maps external identities to workspaces and auth profiles.
+*   **Identity Resolution**: `(protocol, channel_id, author_id)` → `WorkspaceContext`
+*   **Auth Profile**: Scoped credentials injected as environment variables
+*   **Workspace Path**: PVC mount path for the project files
 
 ---
 
 ## 3. The Lifecycle of a "Claw Run"
 
-1.  **Capture**: User sends a message via a Channel (e.g., WhatsApp).
-2.  **Hydrate**: The Gateway pulls the last 10 messages + the group's `CLAUDE.md` file.
-3.  **Queue**: The Sequencer places the request in the group's queue.
-4.  **Execute**: The Runtime spawns/resumes a Sandbox container.
-5.  **Loop**: The Agent uses tools in the Sandbox. The Core streams "thinking" updates back to the Channel.
-6.  **Finalize**: The Agent provides a final answer. The Core saves the new conversation state and releases/idles the Sandbox.
+1.  **Capture**: User sends a message via a Channel (e.g., Discord).
+2.  **Normalize**: The Gateway creates an `InboundMessage` with the resolved `lane_key`.
+3.  **Queue**: The Orchestrator enqueues the message into the per-session lane.
+4.  **Execute**: The Orchestrator invokes the Agent Executor in-process.
+5.  **Loop**: The Agent uses tools (subprocess + external MCP). The Orchestrator streams "thinking" updates back to the Channel.
+6.  **Finalize**: The Agent provides a final answer. The Orchestrator saves the conversation state and releases the lane.

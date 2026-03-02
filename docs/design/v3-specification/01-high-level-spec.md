@@ -7,11 +7,11 @@ This document defines the "Gold Standard" for a tool-capable LLM orchestrator, s
 ## 1. System Philosophy
 
 1.  **Logical Serialization**: A user session is a "Lane." No two runs in the same lane should interleave.
-2.  **Stateless Host, Stateful Sandbox**: The host process manages the "Brain" and "Mouth" (API/Channels). The "Hand" (Sandbox) is the only place where state (files/code) lives.
+2.  **Embedded Execution**: The orchestrator and agent executor run in a single process. There is no container boundary for the agent—K8s Pod isolation is sufficient. See [ADR-004](../../decisions/ADR-004-embedded-executor.md).
 3.  **Strict Capability Tiers**:
     *   **Tier 0 (Read-Only)**: Global memory/knowledge.
-    *   **Tier 1 (Workspace)**: Project-specific files (`/workspace/group`).
-    *   **Tier 2 (System)**: Restricted access to host tools (via sanctioned IPC).
+    *   **Tier 1 (Workspace)**: Project-specific files (PVC mount).
+    *   **Tier 2 (External)**: API-based tools via external MCP servers.
 
 ---
 
@@ -30,18 +30,15 @@ This document defines the "Gold Standard" for a tool-capable LLM orchestrator, s
 *   **Logical Queuing**: The host enqueues this intent into the `CommandLane`.
 
 ### B. The Orchestration Layer (The Controller)
-*   **Session Lifecycle Manager**: Instead of just starting a container, the controller manages "Session Handles."
-*   **Backends**: A pluggable system where a backend can be:
-    *   `Transient`: (NanoClaw style) Spawns a fresh container, runs a task, and exits.
-    *   `Persistent`: (OpenClaw style) Keeps a container warm for low-latency turns.
-*   **Context Compaction**: The controller monitors token usage and triggers a "Compaction Step" (summarization) before the next turn if limits are exceeded.
+*   **Session Lifecycle Manager**: Manages "Session Handles" — resolves workspace, enforces queue invariants, invokes executor.
+*   **Queue Modes**: Defines mid-run behavior via `collect`, `followup`, or `steer` modes ([11-queue-concurrency.md](./11-queue-concurrency.md)).
+*   **Context Compaction**: Monitors token usage and triggers a "Compaction Step" (summarization) before the next turn if limits are exceeded.
 
-### C. The Execution Layer (The Sandbox)
-*   **Hierarchical Mounts**: Every sandbox must have three standard mount points:
-    1.  `/workspace/global`: Read-only system-wide knowledge.
-    2.  `/workspace/project`: Read/Write project-specific files.
-    3.  `/workspace/session`: Read/Write ephemeral turn-specific state (e.g., `.claude/`).
-*   **No Network by Default**: Tools must be proxied through the host to enforce safety and observability.
+### C. The Execution Layer (Embedded Executor)
+*   **In-Process**: The agent executor runs as an async function call from the orchestrator — no container, no IPC.
+*   **Workspace**: PVC-mounted project files; `AGENTS.md` loaded for system prompt.
+*   **Direct Tools**: Bash, git, and file operations run as subprocesses.
+*   **External MCP Tools**: Connects to configured MCP servers for API-based tools (GitHub, Slack, etc.).
 
 ---
 
@@ -81,18 +78,19 @@ A background scheduler (Cron) that can inject intents into any lane.
 *   **Example**: "Every Monday at 9 AM, run a `morning-briefing` intent in the `session:team-alpha` lane."
 *   **Case Study**: See `docs/SCENARIO_ROBOROCK_MAINTAINER.md` for a walkthrough of how an agent transitions from reactive chat to proactive daily triage.
 
-### III. Tool IPC (The Nerve)
-All tools inside the sandbox communicate with the host via a standard JSON-RPC interface over a Unix socket or named pipe. This allows:
-*   **Host-side Approval**: User can approve/deny a `bash` command before it runs.
-*   **Audit Logging**: Every tool call is recorded outside the sandbox.
+### III. Tool Execution
+Tools are invoked either as **subprocesses** (bash, git) or via **external MCP servers** (GitHub, Slack). All tool calls are:
+*   **Audited**: Logged for review and debugging.
+*   **Observable**: Tool start/end events are streamed to the orchestrator.
 
 ---
 
 ## 4. Implementation Guidelines (The "Claw" Checklist)
 
 - [ ] Use **Logical Lanes** for concurrency control.
-- [ ] Use **Docker/Podman** for mandatory sandbox isolation.
-- [ ] Implement **Hierarchical Filesystem Mounts**.
+- [ ] Implement an **Embedded Executor** (single-process model).
+- [ ] Mount **PVC-backed workspaces** for persistence.
 - [ ] Support **Multi-Channel Input** (normalization).
 - [ ] Provide a **Background Scheduler** for proactive tasks.
+- [ ] Connect to **external MCP servers** for API-based tools.
 - [ ] Include an **Audit Log** of all tool executions.
