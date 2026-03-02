@@ -51,11 +51,8 @@ When the Worker requests a `proxied` tool, the Orchestrator acts as a secure mid
 
 ## 4. Handling Interruption & Concurrency
 
-### "Stop & Resume" Logic
-If a user sends a message while the Orchestrator is in `WORKING` state:
-- **Immediate Interruption**: Send a `SIGINT` or `A2A.abort` to the worker?
-- **Queueing**: Append the new message to a "Next Turn" queue.
-- **Design Choice**: For Core v3, we will implement **A2A Interrupts**. The Host sends an `interrupt` packet. The worker checkpoints its state and waits for the new prompt.
+### Mid-Run Input Behavior
+If a user sends a message while the Orchestrator is in `WORKING` state, behavior is determined by the **queue mode** configured for the session. See [11-queue-concurrency.md](./11-queue-concurrency.md) for the full specification of `collect`, `followup`, and `steer` modes.
 
 ### Concurrency
 - Each `ChannelID` (Discord Channel) maps to a unique **UDS Socket**.

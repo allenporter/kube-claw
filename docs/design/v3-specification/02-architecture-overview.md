@@ -4,6 +4,21 @@ This document outlines the foundational principles and architectural components 
 
 ---
 
+## 0. The Four Pillars
+
+At its core, a Claw system is an event-driven, session-isolated, single-writer state machine. Everything it does reduces to four pieces:
+
+| Pillar | What It Provides | KubeClaw Implementation |
+|---|---|---|
+| **Time** | Heartbeats + Cron schedules that create proactive triggers | The Pulse (background scheduler) |
+| **Events** | Messages + Hooks + Webhooks that drive reactive work | Inbound Gateway (multi-channel normalization) |
+| **State** | Sessions + Workspace memory that persist across turns | PVC-backed workspaces + Binding Table |
+| **Loop** | Agent turns: _read → decide → act → write_ | Worker Entrypoint (A2A reasoning loop) |
+
+When people ask whether agents are "alive," the real questions are: *What events wake them? What state do they own? What invariants do they enforce? What tools can they execute?*
+
+---
+
 ## 1. High-Level Architecture
 
 ```mermaid
