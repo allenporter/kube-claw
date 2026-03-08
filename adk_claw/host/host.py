@@ -1,7 +1,8 @@
 """
-KubeClaw Host Process — The Control Plane.
+adk-claw Host Process — The Control Plane.
 
 The host is the long-running process that:
+- Loads configuration from YAML (global + project).
 - Manages the BindingTable (identity → workspace mapping).
 - Runs the Embedded Orchestrator (in-process agent execution).
 - Provides an interface for channel adapters (TUI, Discord, etc.).
@@ -11,8 +12,10 @@ See: ADR-004 (Embedded Executor Architecture)
 
 import logging
 from collections.abc import AsyncIterator
+from pathlib import Path
 
 from adk_claw.binding.fakes import InMemoryBindingTable
+from adk_claw.config import ClawConfig, load_config
 from adk_claw.domain.models import (
     ClawIdentity,
     InboundMessage,
@@ -26,23 +29,31 @@ logger = logging.getLogger(__name__)
 
 class ClawHost:
     """
-    The KubeClaw Host process.
+    The adk-claw Host process.
 
-    Wires together the binding table and embedded orchestrator.
+    Wires together configuration, binding table, and embedded orchestrator.
     Provides a simple interface for channel adapters (TUI, Discord, etc.).
     """
 
     def __init__(
         self,
         workspace_path: str | None = None,
-        model: str | None = None,
+        config: ClawConfig | None = None,
     ) -> None:
+        ws = Path(workspace_path) if workspace_path else None
+        self._config = config or load_config(workspace_path=ws)
         self._binding_table = InMemoryBindingTable()
         self._orchestrator = EmbeddedOrchestrator(
             binding_table=self._binding_table,
-            model=model,
+            model=self._config.agent.model,
+            permission_mode=self._config.agent.permission_mode,
         )
         self._workspace_path = workspace_path
+
+    @property
+    def config(self) -> ClawConfig:
+        """The active configuration."""
+        return self._config
 
     async def setup_default_binding(
         self,
