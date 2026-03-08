@@ -2,8 +2,8 @@
 Embedded Orchestrator — In-Process Agent Executor.
 
 Implements the Orchestrator interface using adk-coder's agent factory
-to run the ADK LlmAgent directly in-process. No sandbox, no UDS,
-no A2A protocol — just an async function call.
+to run the ADK LlmAgent directly in-process. Uses adk-coder's
+build_runner() for session persistence, compaction, and security.
 
 See: ADR-004 (Embedded Executor Architecture)
 See: 12-agent-core.md (Agent Core Integration)
@@ -12,12 +12,12 @@ See: 12-agent-core.md (Agent Core Integration)
 import logging
 import os
 from collections.abc import AsyncIterator
+from pathlib import Path
 
-from google.adk.runners import Runner
-from google.adk.sessions import InMemorySessionService
 from google.genai import types as genai_types
 
-from adk_coder.agent_factory import build_adk_agent
+from adk_coder.agent_factory import build_runner
+from adk_coder.projects import find_project_root, get_project_id
 from adk_coder.summarize import summarize_tool_call
 
 from adk_claw.binding.table import BindingTable
@@ -32,18 +32,19 @@ class EmbeddedOrchestrator(Orchestrator):
     """
     Orchestrator that runs the agent embedded in-process.
 
-    Uses adk-coder's build_adk_agent() to create a fully-configured
-    LlmAgent with tools, skills, and security policies, then runs
-    it via ADK's Runner.
+    Uses adk-coder's build_runner() to create a fully-configured Runner
+    with LlmAgent, SqliteSessionService, and EventsCompactionConfig.
     """
 
     def __init__(
         self,
         binding_table: BindingTable,
         model: str | None = None,
+        permission_mode: str = "auto",
     ) -> None:
         self.binding_table = binding_table
         self._model = model
+        self._permission_mode = permission_mode
         self._active_runs: dict[str, bool] = {}
 
     async def handle_message(  # type: ignore[override]
@@ -59,23 +60,19 @@ class EmbeddedOrchestrator(Orchestrator):
 
         logger.info(f"Handling message for lane={lane_key}, workspace={workspace_path}")
 
-        # 2. Build agent from adk-coder core
-        agent = build_adk_agent(
+        # 2. Build runner from adk-coder (agent + sessions + compaction + security)
+        runner = build_runner(
             model=self._model,
-            # Let adk-coder load AGENTS.md/GEMINI.md from workspace
+            permission_mode=self._permission_mode,
+            workspace_path=Path(workspace_path),
         )
 
-        # 3. Create session and runner
-        session_service = InMemorySessionService()
-        runner = Runner(
-            agent=agent,
-            app_name="adk_claw",
-            session_service=session_service,
-        )
-        session = await session_service.create_session(
-            app_name="adk_claw",
-            user_id=lane_key,
-        )
+        # 3. Derive stable user_id from workspace so sessions persist per-project
+        project_root = find_project_root(Path(workspace_path))
+        user_id = get_project_id(project_root)
+
+        # Use lane_key as session_id so the same user+channel resumes conversation
+        session_id = lane_key
 
         user_content = genai_types.Content(
             role="user",
@@ -89,8 +86,8 @@ class EmbeddedOrchestrator(Orchestrator):
 
         try:
             async for event in runner.run_async(
-                user_id=session.user_id,
-                session_id=session.id,
+                user_id=user_id,
+                session_id=session_id,
                 new_message=user_content,
             ):
                 if not self._active_runs.get(lane_key, False):
