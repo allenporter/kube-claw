@@ -22,7 +22,7 @@ The Worker follows a **Server-First** lifecycle to support "Warm Lanes" in Kuber
 The `SessionManager` (`worker/session.py`) maintains the state of the "Warm Lane."
 
 *   **Soft Reset**: Between tasks (or upon explicit request), the worker performs a `soft_reset()`. This clears the conversation history and temporary variables but keeps the UDS connection and workspace mounts alive.
-*   **Context Isolation**: Ensures that if a lane is re-used for a different user (though unlikely in current design), no residual memory leaks between sessions.
+*   **Context Isolation**: Ensures that if a lane is reused for a different user (though unlikely in current design), no residual memory leaks between sessions.
 
 ## 3. Component: Tool Registry & ADK Integration
 
