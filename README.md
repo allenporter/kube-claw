@@ -1,79 +1,100 @@
-# Claw Core v3: Architecture & Research
+# adk-claw
 
-This directory contains the design and implementation for the next generation of the Claw orchestration framework.
+An AI agent orchestrator built on [Google ADK](https://google.github.io/adk-docs/) and [adk-coder](https://github.com/allenporter/adk-coder).
 
-## Status: Milestone 1 — The Local Loop
+## Architecture
 
-A single-worker local development loop using ADK + A2A + MCP.
+```
+┌──────────────────────────────────────────────┐
+│  HOST PROCESS (ClawHost)                     │
+│  Config (.adk-claw.yaml) → BindingTable      │
+│                                              │
+│  ┌────────────────────────────────────────┐  │
+│  │ Embedded Orchestrator                  │  │
+│  │ adk-coder build_runner()               │  │
+│  │   → LlmAgent + SqliteSessionService   │  │
+│  │   → EventsCompaction + SecurityPlugin  │  │
+│  └────────────────────────────────────────┘  │
+│                                              │
+│  Channel Adapters:                           │
+│    ShellAdapter (TUI)  DiscordAdapter        │
+└──────────────────────────────────────────────┘
+```
 
-### Core Principles (v3)
-- **A2A Protocol**: Every worker (sandbox) is an A2A-compliant agent.
-- **Warm Lanes**: Persistent communication channels between Host and Sandbox.
-- **Binding Table**: Just-in-Time resolution of identity to workspace/credentials.
-- **Opaque Execution**: Sandbox internals are hidden; interaction is via standardized A2A Artifacts and Tasks.
+The host runs an embedded ADK agent in-process — no subprocesses, no RPC.
+Sessions persist via SQLite (`~/.adk/sessions.db`) with automatic compaction.
 
----
-
-## Getting Started (Local Development)
+## Quickstart
 
 ### Prerequisites
 - Python 3.14+
-- A [Google AI API key](https://aistudio.google.com/apikey) (for Gemini)
+- A [Google AI API key](https://aistudio.google.com/apikey)
+- [adk-coder](https://github.com/allenporter/adk-coder) installed
 
-### 1. Bootstrap the environment
+### 1. Bootstrap
 
 ```bash
 ./script/bootstrap
 source .venv/bin/activate
 ```
 
-### 2. Run the local TUI
+### 2. Run the TUI
 
 ```bash
 GOOGLE_API_KEY=<your-key> python3 script/local_tui.py
 ```
 
-This starts the full local loop:
-- **Host process** — manages the binding table, spawns workers, hosts MCP tools.
-- **Worker subprocess** — runs an ADK `LlmAgent` with Gemini 2.0 Flash inside a sandboxed process.
-- **TUI** — interactive terminal for sending messages and viewing streamed responses.
-
-You can optionally point to a specific workspace directory:
+Optionally point to a workspace:
 
 ```bash
-GOOGLE_API_KEY=<your-key> python3 script/local_tui.py --workspace /path/to/your/project
+GOOGLE_API_KEY=<your-key> python3 script/local_tui.py --workspace /path/to/project
 ```
 
-### 3. Lint & Test
+The TUI connects to `ClawHost`, which routes messages through the embedded
+orchestrator. The agent has access to adk-coder's tools (bash, file editing,
+web search, etc.) and loads project instructions from `AGENTS.md`.
+
+### 3. Configuration (optional)
+
+Create `.adk-claw.yaml` in your project root:
+
+```yaml
+agent:
+  model: gemini-2.5-pro
+  permission_mode: auto
+
+queue:
+  mode: collect
+  debounce_ms: 1500
+```
+
+Global config at `~/.adk-claw/config.yaml` is merged with project config
+(project settings take precedence).
+
+### 4. Lint & Test
 
 ```bash
 ./script/lint
 ./script/test
 ```
 
-> **Note:** Two A2A handshake integration tests require `GOOGLE_API_KEY` to be set and will be skipped otherwise.
-
----
-
-## Architecture
+## Project Structure
 
 ```
-┌─────────────────────────────────────┐
-│  HOST PROCESS                       │
-│  TUI → Orchestrator → SandboxMgr   │
-│  MCP Server (git_info, github_api,  │
-│              host_approve)          │
-└──────────────┬──────────────────────┘
-               │ A2A (UDS) + MCP (UDS)
-┌──────────────▼──────────────────────┐
-│  WORKER PROCESS (subprocess)        │
-│  ADK LlmAgent (Gemini 2.0 Flash)   │
-│  Loads prompt from AGENTS.md        │
-│  Calls host tools via MCP           │
-└─────────────────────────────────────┘
+adk_claw/
+  config.py          # YAML config loader (global + project)
+  memory.py          # Cross-session key-value memory store
+  domain/models.py   # Core domain types (InboundMessage, OrchestratorEvent)
+  binding/           # Identity → workspace resolution
+  gateway/           # Channel adapters (Discord, etc.)
+  host/host.py       # Control plane — wires config, binding, orchestrator
+  orchestrator/      # Embedded executor (build_runner → run_async)
+  mcp/               # MCP server tools (git_info, github_api, etc.)
 ```
 
-See `docs/design/v3-specification/` for the full specification.
+## Documentation
 
-### Legacy Code
-Previous iterations and proof-of-concepts have been moved to `v1_legacy/`.
+See `docs/` for design specs:
+- `docs/design/v3-specification/` — Full architecture specification
+- `docs/decisions/` — Architectural Decision Records (ADRs)
+- `docs/research/` — Background research on agent frameworks
