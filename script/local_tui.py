@@ -19,9 +19,6 @@ import os
 
 from aioconsole import ainput
 
-# Ensure adk_claw is importable
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-
 from adk_claw.host.host import ClawHost
 
 # --- Styling ---
@@ -54,10 +51,12 @@ def print_event(event_type: str, content: str) -> None:
     """Pretty-print an orchestrator event."""
     if event_type == "thought":
         print(f"  {YELLOW}💭 {content}{RESET}")
-    elif event_type == "result":
+    elif event_type in ("result", "token"):
         print(f"  {GREEN}🤖 {content}{RESET}")
     elif event_type == "artifact":
         print(f"  {MAGENTA}📦 Artifact: {content}{RESET}")
+    elif event_type == "status":
+        print(f"  {DIM}⏳ {content}{RESET}")
     elif event_type == "error":
         print(f"  {RED}❌ Error: {content}{RESET}")
     else:

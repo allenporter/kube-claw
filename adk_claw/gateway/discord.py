@@ -87,33 +87,43 @@ class DiscordAdapter:
         channel_id = str(message.channel.id)
         author_id = str(message.author.id)
 
-        await self._host.setup_default_binding(
-            protocol="discord",
-            channel_id=channel_id,
-            author_id=author_id,
-        )
-
-        # Stream agent response back to the channel
-        response_parts: list[str] = []
-
-        async with message.channel.typing():
-            async for event in self._host.handle_message(
-                text=content,
+        try:
+            await self._host.setup_default_binding(
                 protocol="discord",
                 channel_id=channel_id,
                 author_id=author_id,
-            ):
-                if event.type == EventType.TOKEN:
-                    response_parts.append(event.content)
-                elif event.type == EventType.ERROR:
-                    response_parts.append(f"⚠️ {event.content}")
+            )
 
-        # Send the collected response
-        if response_parts:
-            full_response = "\n".join(response_parts)
-            # Discord has a 2000 char limit per message
-            for chunk in _split_message(full_response):
-                await message.reply(chunk)
+            # Stream agent response back to the channel
+            response_parts: list[str] = []
+
+            async with message.channel.typing():
+                async for event in self._host.handle_message(
+                    text=content,
+                    protocol="discord",
+                    channel_id=channel_id,
+                    author_id=author_id,
+                ):
+                    if event.type == EventType.TOKEN:
+                        response_parts.append(event.content)
+                    elif event.type == EventType.ERROR:
+                        response_parts.append(f"⚠️ {event.content}")
+
+            # Send the collected response
+            if response_parts:
+                full_response = "\n".join(response_parts)
+                # Discord has a 2000 char limit per message
+                for chunk in _split_message(full_response):
+                    await message.reply(chunk)
+            else:
+                await message.reply("_(No response from agent)_")
+
+        except Exception:
+            logger.exception("Error handling Discord message")
+            try:
+                await message.reply("⚠️ An error occurred processing your message.")
+            except Exception:
+                logger.exception("Failed to send error reply")
 
 
 def _split_message(text: str, max_len: int = 2000) -> list[str]:

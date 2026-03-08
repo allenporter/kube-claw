@@ -78,6 +78,26 @@ Global config at `~/.adk-claw/config.yaml` is merged with project config
 ./script/test
 ```
 
+### 5. Discord Bot (optional)
+
+Run the agent as a Discord bot that responds to @mentions and DMs.
+
+**Setup:**
+
+1. Create a bot at [Discord Developer Portal](https://discord.com/developers/applications)
+2. Enable **Message Content Intent** under Bot → Privileged Gateway Intents
+3. Invite the bot to your server with `bot` + `applications.commands` scopes
+4. Copy the bot token
+
+**Run:**
+
+```bash
+GOOGLE_API_KEY=<your-key> DISCORD_TOKEN=<bot-token> python3 script/discord_bot.py --workspace .
+```
+
+The bot will respond when @mentioned in a channel or sent a DM.
+Messages are routed through the same orchestrator as the TUI.
+
 ## Project Structure
 
 ```
