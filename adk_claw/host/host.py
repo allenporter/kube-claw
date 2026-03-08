@@ -103,7 +103,14 @@ class ClawHost:
         )
         workspace_path = context.metadata.get("workspace_path", os.getcwd())
 
-        logger.info(f"Handling message for lane={lane_key}, workspace={workspace_path}")
+        # Load workspace-specific config
+        ws = Path(workspace_path)
+        ws_config = load_config(workspace_path=ws)
+
+        logger.info(
+            f"Handling message for lane={lane_key}, workspace={workspace_path}, "
+            f"env_keys={list(ws_config.agent.env.keys())}"
+        )
 
         # Execute via runtime
         self._active_runs[lane_key] = True
@@ -115,6 +122,8 @@ class ClawHost:
                 message=text,
                 lane_key=lane_key,
                 session_id=session_id,
+                env=ws_config.agent.env,
+                mcp=ws_config.mcp_servers,
             ):
                 if not self._active_runs.get(lane_key, False):
                     logger.info(f"Run cancelled for lane {lane_key}")

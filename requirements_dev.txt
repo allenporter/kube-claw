@@ -20,4 +20,4 @@ starlette==0.52.1
 mcp==1.26.0
 aiosqlite==0.22.1
 google-adk==1.25.1
-adk-coder==0.1.1
+adk-coder==0.1.2

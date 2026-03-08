@@ -10,7 +10,7 @@ implementations handle where and how the agent executes:
 """
 
 from collections.abc import AsyncIterator
-from typing import Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 from adk_claw.domain.models import OrchestratorEvent
 
@@ -31,6 +31,8 @@ class Runtime(Protocol):
         message: str,
         lane_key: str,
         session_id: str,
+        env: dict[str, str] | None = None,
+        mcp: dict[str, Any] | None = None,
     ) -> AsyncIterator[OrchestratorEvent]:
         """Run one agent turn, yielding events as they occur.
 

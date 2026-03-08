@@ -1,6 +1,8 @@
 """Tests for ClawHost."""
 
 import pytest
+from collections.abc import AsyncIterator
+from typing import Any
 
 from adk_claw.config import AgentConfig, ClawConfig
 from adk_claw.domain.models import EventType, OrchestratorEvent
@@ -16,7 +18,9 @@ class FakeRuntime:
         message: str,
         lane_key: str,
         session_id: str,
-    ):
+        env: dict[str, str] | None = None,
+        mcp: dict[str, Any] | None = None,
+    ) -> AsyncIterator[OrchestratorEvent]:
         yield OrchestratorEvent(type=EventType.TOKEN, content=f"Echo: {message}")
 
 

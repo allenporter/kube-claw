@@ -28,6 +28,7 @@ class AgentConfig:
 
     model: str | None = None
     permission_mode: str = "auto"
+    env: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass
@@ -46,7 +47,7 @@ class ClawConfig:
     agent: AgentConfig = field(default_factory=AgentConfig)
     queue: QueueConfig = field(default_factory=QueueConfig)
     channels: dict[str, Any] = field(default_factory=dict)
-    mcp: dict[str, Any] = field(default_factory=dict)
+    mcp_servers: dict[str, Any] = field(default_factory=dict)
 
 
 def _load_yaml(path: Path) -> dict[str, Any]:
@@ -93,6 +94,7 @@ def load_config(workspace_path: Path | None = None) -> ClawConfig:
         agent=AgentConfig(
             model=agent_raw.get("model"),
             permission_mode=agent_raw.get("permission_mode", "auto"),
+            env=agent_raw.get("env", {}),
         ),
         queue=QueueConfig(
             mode=queue_raw.get("mode", "collect"),
@@ -100,5 +102,7 @@ def load_config(workspace_path: Path | None = None) -> ClawConfig:
             max_concurrent=queue_raw.get("max_concurrent", 4),
         ),
         channels=merged.get("channels", {}),
-        mcp=merged.get("mcp", {}),
+        mcp_servers=merged.get("mcpServers")
+        or merged.get("mcp_servers")
+        or merged.get("mcp", {}),
     )

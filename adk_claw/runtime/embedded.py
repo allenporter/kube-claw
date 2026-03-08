@@ -10,14 +10,15 @@ import logging
 import os
 from collections.abc import AsyncIterator
 from pathlib import Path
+from typing import Any
 
 from google.genai import types as genai_types
 
 from adk_coder.agent_factory import build_runner
 from adk_coder.projects import find_project_root, get_project_id
 from adk_coder.summarize import summarize_tool_call
-
 from adk_claw.domain.models import EventType, OrchestratorEvent
+from adk_claw.runtime.mcp_support import McpSupport
 
 logger = logging.getLogger(__name__)
 
@@ -45,9 +46,20 @@ class EmbeddedRuntime:
         message: str,
         lane_key: str,
         session_id: str,
+        env: dict[str, str] | None = None,
+        mcp: dict[str, Any] | None = None,
     ) -> AsyncIterator[OrchestratorEvent]:
         """Run one agent turn in-process."""
         ws = Path(workspace_path).resolve()
+
+        # Update environment with workspace-specific variables
+        original_env = os.environ.copy()
+        if env:
+            os.environ.update(env)
+
+        # Wire external MCP servers
+        mcp_support = McpSupport(mcp or {})
+        mcp_args = mcp_support.get_toolset_args()
 
         # Change CWD so agent tools operate in the workspace
         original_cwd = os.getcwd()
@@ -58,6 +70,7 @@ class EmbeddedRuntime:
                 model=self._model,
                 permission_mode=self._permission_mode,
                 workspace_path=ws,
+                extra_tools=mcp_args.get("extra_tools"),
             )
 
             project_root = find_project_root(ws)
@@ -95,3 +108,5 @@ class EmbeddedRuntime:
             yield OrchestratorEvent(type=EventType.ERROR, content=f"Agent error: {e}")
         finally:
             os.chdir(original_cwd)
+            os.environ.clear()
+            os.environ.update(original_env)
