@@ -107,8 +107,8 @@ adk_claw/
   domain/models.py   # Core domain types (InboundMessage, OrchestratorEvent)
   binding/           # Identity → workspace resolution
   gateway/           # Channel adapters (Discord, etc.)
-  host/host.py       # Control plane — wires config, binding, orchestrator
-  orchestrator/      # Embedded executor (build_runner → run_async)
+  host/host.py       # Control plane — config, bindings, routing, cancellation
+  runtime/           # Agent execution backends (embedded, subprocess, K8s Job)
   mcp/               # MCP server tools (git_info, github_api, etc.)
 ```
 

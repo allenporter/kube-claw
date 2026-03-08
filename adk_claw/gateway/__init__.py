@@ -19,7 +19,7 @@ class ChannelAdapter(Protocol):
     Each adapter is responsible for:
     - Listening to its channel (Discord, CLI, GitHub webhooks, etc.)
     - Normalizing incoming messages into InboundMessage
-    - Calling the orchestrator's handle_message()
+    - Calling the host's handle_message()
     - Routing OrchestratorEvent back to the user's channel
     """
 

@@ -1,16 +1,17 @@
 """
-adk-claw Host Process — The Control Plane.
+adk-claw Host — The Control Plane.
 
 The host is the long-running process that:
 - Loads configuration from YAML (global + project).
 - Manages the BindingTable (identity → workspace mapping).
-- Runs the Embedded Orchestrator (in-process agent execution).
+- Routes messages to a Runtime backend for agent execution.
 - Provides an interface for channel adapters (TUI, Discord, etc.).
 
 See: ADR-004 (Embedded Executor Architecture)
 """
 
 import logging
+import os
 from collections.abc import AsyncIterator
 from pathlib import Path
 
@@ -22,7 +23,8 @@ from adk_claw.domain.models import (
     OrchestratorEvent,
     WorkspaceContext,
 )
-from adk_claw.orchestrator.embedded import EmbeddedOrchestrator
+from adk_claw.runtime import Runtime
+from adk_claw.runtime.embedded import EmbeddedRuntime
 
 logger = logging.getLogger(__name__)
 
@@ -31,24 +33,26 @@ class ClawHost:
     """
     The adk-claw Host process.
 
-    Wires together configuration, binding table, and embedded orchestrator.
-    Provides a simple interface for channel adapters (TUI, Discord, etc.).
+    Wires together configuration, binding table, and runtime.
+    Resolves workspaces, manages cancellation, and provides
+    a simple interface for channel adapters.
     """
 
     def __init__(
         self,
         workspace_path: str | None = None,
         config: ClawConfig | None = None,
+        runtime: Runtime | None = None,
     ) -> None:
         ws = Path(workspace_path) if workspace_path else None
         self._config = config or load_config(workspace_path=ws)
         self._binding_table = InMemoryBindingTable()
-        self._orchestrator = EmbeddedOrchestrator(
-            binding_table=self._binding_table,
+        self._runtime = runtime or EmbeddedRuntime(
             model=self._config.agent.model,
             permission_mode=self._config.agent.permission_mode,
         )
         self._workspace_path = workspace_path
+        self._active_runs: dict[str, bool] = {}
 
     @property
     def config(self) -> ClawConfig:
@@ -83,19 +87,47 @@ class ClawHost:
         channel_id: str = "local",
         author_id: str = "dev",
     ) -> AsyncIterator[OrchestratorEvent]:
-        """Send a message through the full orchestration pipeline."""
-        identity = ClawIdentity(
-            protocol=protocol,
-            author_id=author_id,
-        )
+        """Send a message through the full pipeline: resolve → execute → stream."""
+        identity = ClawIdentity(protocol=protocol, author_id=author_id)
         message = InboundMessage(
             identity=identity,
             channel_id=channel_id,
             content=text,
         )
 
-        async for event in self._orchestrator.handle_message(message):
-            yield event
+        lane_key = message.lane_id
+
+        # Resolve workspace
+        context = await self._binding_table.resolve_workspace(
+            protocol, channel_id, author_id
+        )
+        workspace_path = context.metadata.get("workspace_path", os.getcwd())
+
+        logger.info(f"Handling message for lane={lane_key}, workspace={workspace_path}")
+
+        # Execute via runtime
+        self._active_runs[lane_key] = True
+        session_id = lane_key
+
+        try:
+            async for event in self._runtime.execute(
+                workspace_path=workspace_path,
+                message=text,
+                lane_key=lane_key,
+                session_id=session_id,
+            ):
+                if not self._active_runs.get(lane_key, False):
+                    logger.info(f"Run cancelled for lane {lane_key}")
+                    break
+                yield event
+        finally:
+            self._active_runs.pop(lane_key, None)
+
+    async def cancel_run(self, lane_key: str) -> None:
+        """Cancel an in-progress agent run."""
+        if lane_key in self._active_runs:
+            self._active_runs[lane_key] = False
+            logger.info(f"Cancellation requested for lane {lane_key}")
 
     async def shutdown(self) -> None:
         """Clean up resources."""

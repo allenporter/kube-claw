@@ -1,7 +1,7 @@
 """
 Discord Channel Adapter.
 
-Connects a Discord bot to the adk-claw orchestrator. Listens for
+Connects a Discord bot to the adk-claw host. Listens for
 @mentions and DMs, routes messages through the host, and streams
 agent responses back to the channel.
 """
