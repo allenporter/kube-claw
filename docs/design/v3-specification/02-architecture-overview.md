@@ -1,21 +1,17 @@
 # Claw Core: Architectural Principles & Component Requirements
 
-This document outlines the foundational principles and architectural components that define a "Claw Core" system (based on the analysis of `openclaw` and `nanoclaw`).
-
 ---
 
 ## 0. The Four Pillars
 
 At its core, a Claw system is an event-driven, session-isolated, single-writer state machine. Everything it does reduces to four pieces:
 
-| Pillar | What It Provides | KubeClaw Implementation |
+| Pillar | What It Provides | adk-claw Implementation |
 |---|---|---|
 | **Time** | Heartbeats + Cron schedules that create proactive triggers | The Pulse (background scheduler) |
 | **Events** | Messages + Hooks + Webhooks that drive reactive work | Inbound Gateway (multi-channel normalization) |
-| **State** | Sessions + Workspace memory that persist across turns | PVC-backed workspaces + Binding Table |
-| **Loop** | Agent turns: _read → decide → act → write_ | Embedded Executor (adk-coder agent loop) |
-
-When people ask whether agents are "alive," the real questions are: *What events wake them? What state do they own? What invariants do they enforce? What tools can they execute?*
+| **State** | Sessions + Workspace memory that persist across turns | SqliteSessionService + MemoryStore |
+| **Loop** | Agent turns: _read → decide → act → write_ | Runtime (adk-coder agent loop) |
 
 ---
 
@@ -24,119 +20,91 @@ When people ask whether agents are "alive," the real questions are: *What events
 ```mermaid
 graph TD
     subgraph "External Channels"
-        WA[WhatsApp]
         DS[Discord]
-        EM[Email]
+        TUI[Terminal TUI]
     end
 
-    subgraph "KubeClaw Process"
-        Gateway[Inbound Gateway]
+    subgraph "adk-claw Process"
+        Host[ClawHost]
         Queue[Lane Queue]
-        Orchestrator[Orchestrator]
-        Executor[Agent Executor / ADK]
-        DB[(Binding Table / SQLite)]
-        Tools[Direct Tools: Bash / Git]
+        RT[Runtime]
+        DB[(Binding Table)]
+        Tools[adk-coder Tools: bash / edit / grep]
     end
 
     ExtMCP[External MCP Servers]
-    Workspace[(PVC: Workspace Files)]
+    Workspace[(Workspace Files)]
 
     %% Flow
-    WA & DS & EM -->|Trigger| Gateway
-    Gateway -->|Resolve Identity| DB
-    Gateway -->|Enqueue| Queue
-    Queue -->|Dequeue| Orchestrator
-    Orchestrator -->|In-Process Call| Executor
-    Executor <-->|Local Exec| Tools
-    Executor <-->|MCP Client| ExtMCP
+    DS & TUI -->|Trigger| Host
+    Host -->|Resolve Identity| DB
+    Host -->|Enqueue| Queue
+    Queue -->|Dequeue| Host
+    Host -->|execute| RT
+    RT <-->|Local Exec| Tools
+    RT <-->|MCP Client| ExtMCP
     Tools <-->|Modify| Workspace
-    Orchestrator -.->|Stream Events| Gateway
-    Gateway -.->|Reply| WA & DS & EM
+    RT -.->|Stream Events| Host
+    Host -.->|Reply| DS & TUI
 ```
 
-> **Embedded Executor Model** ([ADR-004](../../decisions/ADR-004-embedded-executor.md)): The Gateway, Orchestrator, and Agent Executor run in a single process. There is no container boundary, no UDS, and no inter-process protocol between them.
+### Component Responsibility
 
-## 2. Protocols
+| Component | Responsibility |
+|---|---|
+| **ClawHost** | Config, bindings, routing, cancellation, queue (future) |
+| **Runtime** | Agent execution in an isolated workspace |
+| **ChannelAdapter** | Normalize channel I/O (Discord, TUI, A2A) |
+| **BindingTable** | Identity → workspace resolution |
 
-### MCP (Model Context Protocol) — External Tools Only
-*   **Role**: Connects the Agent Executor to *external* tool servers for API-based tools (GitHub, Slack, etc.).
-*   **Transport**: stdio or HTTP (to external MCP servers)
-*   **Not used internally**: There is no in-process MCP server for "hydration." Direct tools (bash, git) run as subprocesses.
+### The Runtime Protocol
 
-### Internal Communication
-*   **Gateway → Orchestrator**: `InboundMessage` (normalized input from any channel)
-*   **Orchestrator → Executor**: Direct async function call
-*   **Executor → Orchestrator**: `OrchestratorEvent` stream (thoughts, results, artifacts)
-*   See [11-queue-concurrency.md](./11-queue-concurrency.md) for queue semantics
+The `Runtime` protocol is the key abstraction enabling multiple execution backends:
+
+| Implementation | How | When |
+|---|---|---|
+| `EmbeddedRuntime` | In-process, `os.chdir()` + `build_runner()` | Single-user, single workspace |
+| `SubprocessRuntime` | `asyncio.create_subprocess_exec(cwd=workspace)` | Local multi-workspace |
+| `KubeJobRuntime` | K8s Job with PVC-mounted workspace | Production, multi-tenant |
 
 ---
 
-## 3. Core Principles
-
-
-A robust Claw Core is built on four pillars that move it beyond a simple chatbot into a functional autonomous agent.
+## 2. Core Principles
 
 ### I. Isolation (The Workspace Principle)
-*   **Definition**: The agent's tool executions are scoped to its assigned workspace.
-*   **Requirement**: All tool executions (Bash, Filesystem) operate within a PVC-mounted workspace. K8s Pod isolation provides the OS-level boundary.
-*   **Goal**: Protect host credentials, sensitive data, and system stability from potentially destructive or hallucinated agent actions.
+The agent's tool executions are scoped to its assigned workspace. The `Runtime` handles CWD isolation — `EmbeddedRuntime` uses `os.chdir()`, while `KubeJobRuntime` uses container-level isolation.
 
 ### II. Persistence (The Memory Principle)
-*   **Definition**: The agent must maintain state across long durations and multiple sessions.
-*   **Requirement**:
-    *   **Hierarchical Memory**: Support for Global memory (general facts) and Local memory (project/chat-specific context).
-    *   **Automated Compaction**: A mechanism to summarize or prune conversation history to keep the agent within LLM context limits without losing the "thread" of the task.
-*   **Goal**: Create a sense of continuity where the agent "knows" who you are and what you're working on.
+The agent maintains state across sessions via `SqliteSessionService` (conversation history) and `MemoryStore` (cross-session key-value notes). Auto-compaction keeps sessions within LLM context limits.
 
 ### III. Reachability (The Multi-Channel Principle)
-*   **Definition**: The agent should exist where the user is already working.
-*   **Requirement**: The core must be protocol-agnostic. It should normalize input from WhatsApp, Discord, Slack, or TUI into a standard "Intent" object and handle outbound streaming back to those platforms.
-*   **Goal**: Minimize friction for the user by meeting them in their preferred communication channel.
+The `ChannelAdapter` protocol normalizes input from Discord, CLI, or any future channel into `InboundMessage`. The core is channel-agnostic.
 
 ### IV. Autonomy (The Proactive Principle)
-*   **Definition**: The system must be capable of acting without an immediate user trigger.
-*   **Requirement**: A built-in scheduler that can trigger "Agent Runs" based on time (Cron) or events (Webhook/IPC).
-*   **Goal**: Transform the agent from a reactive responder into a proactive assistant that performs background tasks (e.g., morning briefings, system monitoring).
-
----
-
-## 2. Primary Architectural Components
-
-### A. The Inbound Gateway
-Normalizes all external inputs into `InboundMessage` events.
-*   **Trigger Detection**: Identify when a message is directed at the agent
-*   **Dedupe & Debounce**: Prevent duplicate runs from channel redeliveries; batch rapid text messages
-*   **Lane Key Resolution**: Compute `lane_key` from channel/author (see [11-queue-concurrency.md §6](./11-queue-concurrency.md))
-
-### B. The Orchestrator
-Enforces queue invariants and invokes the executor.
-*   **Lane Queue**: Per-session FIFO with single-writer guarantee
-*   **Global Throttle**: Semaphore capping total concurrent runs
-*   **Queue Modes**: `collect` / `followup` / `steer` (see [11-queue-concurrency.md](./11-queue-concurrency.md))
-*   **Context Compaction**: Monitor token usage and trigger summarization when thresholds are exceeded
-*   **Audit Logging**: Record every tool call, input, and output
-
-### C. The Agent Executor
-Runs the ADK agent loop in-process.
-*   **ADK Framework**: `LlmAgent` with Gemini for reasoning
-*   **Workspace Loading**: Reads `AGENTS.md` from the PVC-mounted workspace for system prompt
-*   **External MCP Tools**: Connects to configured external MCP servers via `McpToolset`
-*   **Direct Tools**: Bash, git, and file operations run as subprocesses
-*   **Event Streaming**: Yields `OrchestratorEvent` (thoughts, results, artifacts) back to the orchestrator
-
-### D. The Binding Table
-Maps external identities to workspaces and auth profiles.
-*   **Identity Resolution**: `(protocol, channel_id, author_id)` → `WorkspaceContext`
-*   **Auth Profile**: Scoped credentials injected as environment variables
-*   **Workspace Path**: PVC mount path for the project files
+The Pulse scheduler triggers agent runs based on time (cron) or events (webhooks) without a user message.
 
 ---
 
 ## 3. The Lifecycle of a "Claw Run"
 
-1.  **Capture**: User sends a message via a Channel (e.g., Discord).
-2.  **Normalize**: The Gateway creates an `InboundMessage` with the resolved `lane_key`.
-3.  **Queue**: The Orchestrator enqueues the message into the per-session lane.
-4.  **Execute**: The Orchestrator invokes the Agent Executor in-process.
-5.  **Loop**: The Agent uses tools (subprocess + external MCP). The Orchestrator streams "thinking" updates back to the Channel.
-6.  **Finalize**: The Agent provides a final answer. The Orchestrator saves the conversation state and releases the lane.
+1.  **Capture**: User sends a message via a Channel (e.g., Discord @mention).
+2.  **Normalize**: The `ChannelAdapter` routes through `ClawHost.handle_message()`.
+3.  **Resolve**: The host resolves the workspace from the `BindingTable`.
+4.  **Execute**: The host calls `runtime.execute()` with the workspace path and message.
+5.  **Loop**: The Runtime runs the adk-coder agent. The host streams events back to the channel.
+6.  **Finalize**: The agent provides a response. The session is saved. The lane is released.
+
+---
+
+## 4. Module Layout
+
+| Module | Purpose |
+|---|---|
+| `adk_claw/host/host.py` | `ClawHost` — config, bindings, routing, cancellation |
+| `adk_claw/runtime/` | `Runtime` protocol + `EmbeddedRuntime` (future: `SubprocessRuntime`, `KubeJobRuntime`) |
+| `adk_claw/gateway/` | `ChannelAdapter` protocol + `DiscordAdapter` |
+| `adk_claw/config.py` | YAML config loader (global + project merge) |
+| `adk_claw/memory.py` | Cross-session `MemoryStore` (JSON files) |
+| `adk_claw/binding/` | `BindingTable` — maps `(protocol, channel_id, author_id)` → `WorkspaceContext` |
+| `adk_claw/domain/models.py` | Core domain types |
+| `adk_claw/mcp/` | MCP server tools |

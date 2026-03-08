@@ -218,22 +218,21 @@ mcp:
 
 ## 7. Module Layout
 
-The KubeClaw codebase is structured around the embedded executor model:
-
 | Module | Purpose |
 |---|---|
-| `adk_claw/orchestrator/embedded.py` | `EmbeddedOrchestrator` — imports `build_adk_agent()`, runs agent via `Runner.run_async()` |
-| `adk_claw/orchestrator/base.py` | Abstract `Orchestrator` interface |
-| `adk_claw/gateway/` | `ChannelAdapter` protocol for Discord, CLI, A2A, GitHub adapters |
-| `adk_claw/host/host.py` | `ClawHost` — wires binding table + orchestrator, provides channel-agnostic interface |
-| `adk_claw/binding/` | `BindingTable` — maps `(protocol, channel_id, author_id)` → `WorkspaceContext` |
-| `adk_claw/domain/models.py` | Core domain types: `InboundMessage`, `OrchestratorEvent`, `ClawIdentity`, `WorkspaceContext` |
-| `adk_claw/mcp/` | External MCP server configuration |
+| `adk_claw/host/host.py` | `ClawHost` — config, bindings, routing, cancellation |
+| `adk_claw/runtime/` | `Runtime` protocol + `EmbeddedRuntime` (calls `build_runner()`) |
+| `adk_claw/gateway/` | `ChannelAdapter` protocol + `DiscordAdapter` |
+| `adk_claw/config.py` | YAML config loader (global + project merge) |
+| `adk_claw/memory.py` | Cross-session key-value `MemoryStore` |
+| `adk_claw/binding/` | `BindingTable` — maps identity → `WorkspaceContext` |
+| `adk_claw/domain/models.py` | Core domain types |
+| `adk_claw/mcp/` | MCP server tools |
 
 ---
 
-## 8. Open Questions
+## 8. Resolved Questions
 
-1. **Package name**: `adk-coding-agent`? `adk-agent-core`? Or just keep importing from `adk-coder`?
-2. **YAML vs JSON settings**: `adk-coder` uses JSON today. YAML is more readable for nested config. Migrate or support both?
-3. **Session DB sharing**: Should KubeClaw's `SqliteSessionService` share the same `~/.adk/sessions.db` as `adk-coder`, or use a separate store?
+1. **Package name**: Kept `adk-coder` as a direct dependency. No extraction needed.
+2. **YAML vs JSON settings**: adk-claw uses YAML (`.adk-claw.yaml`). adk-coder keeps its JSON settings. Each project has its own config format.
+3. **Session DB sharing**: Shared `~/.adk/sessions.db`. This allows `adk-coder` CLI and adk-claw to resume the same sessions.

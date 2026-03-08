@@ -1,34 +1,63 @@
 # Design TODOs (Claw Core v3)
 
-This document tracks the outstanding design gaps and tasks that need to be addressed.
+This document tracks the outstanding design gaps and tasks.
 
-## 1. Kubernetes Controller & Resource Mapping
-- [ ] **Define K8s Resource Strategy**: Determine if "Lanes" should be implemented as `Deployments`, `Jobs`, or a custom `ClawLane` CRD.
-- [ ] **Binding Table to K8s Translation**: Design the logic that translates a Binding Table entry (Channel ID + User ID) into specific Pod specifications, including PVC mounts and Environment Variables.
-- [ ] **PVC Management**: Define how persistent volumes for workspaces are provisioned and attached to lanes (e.g., dynamic vs. static provisioning).
+## Done
 
-## 2. Data Modeling & Identity
-- [x] **Formal Binding Table Schema**: Defined in `adk_claw/binding/table.py`.
-- [ ] **Auth Profile Injection**: Design the secure mechanism for injecting credentials (like GitHub tokens) into the executor environment (e.g., K8s Secrets or dynamic env injection).
+- [x] **Embedded Executor**: Agent runs in-process via `adk-coder`. See [ADR-004](../../decisions/ADR-004-embedded-executor.md).
+- [x] **Binding Table**: `adk_claw/binding/table.py`
+- [x] **YAML Configuration**: `config.py` — global + project merge
+- [x] **Memory Store**: `memory.py` — cross-session key-value
+- [x] **Discord Adapter**: `gateway/discord.py` — @mention/DM handling
+- [x] **Runtime Protocol**: `runtime/` — `Runtime` protocol + `EmbeddedRuntime` with `os.chdir()` workspace isolation
+- [x] **Host/Orchestrator Merge**: `ClawHost` owns routing, cancellation, and lifecycle directly
 
-## 3. Communication & Protocol
-- [x] **Orchestrator Lifecycle**: Defined the state machine and execution flow. See [08-orchestrator-handshake.md](./08-orchestrator-handshake.md).
-- [x] **Embedded Executor**: Agent runs in-process via `adk-coder`. See [12-agent-core.md](./12-agent-core.md).
-- [ ] **External MCP Server Config**: Design configuration for connecting to external MCP servers (GitHub, Slack, etc.).
-- [ ] **Queue & Concurrency Implementation**: Implement the lane queue with `collect`/`followup`/`steer` modes. See [11-queue-concurrency.md](./11-queue-concurrency.md).
+---
 
-## 4. Security & Isolation
-- [ ] **Security Policy Configuration**: Define how `CustomPolicyEngine` modes (`ask`/`auto`/`plan`) are configured per-channel.
-- [ ] **Credential Sanitization**: Define how to prevent the LLM from leaking injected tokens.
+## Phase 1: Make It Useful
 
-## 5. Scheduler & Autonomy ("The Pulse")
-- [ ] **Pulse System Design**: Define the "Pulse" mechanism for proactive task triggers (e.g., daily triaging).
-- [ ] **Retry & Failure Logic**: Design how the system handles agent crashes or long-running task timeouts.
+The platform provides workspace isolation, credential injection, and tool wiring.
+Task-specific behavior lives in each workspace's `AGENTS.md` and skills — not in the claw.
 
-## 6. Implementation & Codebase
-- [x] **Define Core Interfaces**: Created `BindingTable`, `Orchestrator` ABCs.
-- [x] **Create Testing Fakes**: Implemented `InMemoryBindingTable`.
-- [x] **Embedded Orchestrator**: Implemented `EmbeddedOrchestrator` with `adk-coder` integration.
-- [ ] **Channel Adapters**: Implement `DiscordAdapter`, `A2AAdapter`, etc. using the `ChannelAdapter` protocol.
-- [ ] **YAML Configuration**: Implement config loader for `.adk-claw.yaml`.
-- [ ] **Memory Store**: Implement cross-session `MemoryStore` for agent notes.
+```
+/workspaces/ha-maintenance/
+  AGENTS.md          ← task-specific instructions (skills, not infra)
+  .adk-claw.yaml     ← mcp: [github], env: [GITHUB_TOKEN]
+
+/workspaces/inbox-triage/
+  AGENTS.md          ← different task, different instructions
+  .adk-claw.yaml     ← mcp: [gmail], env: [GMAIL_TOKEN]
+```
+
+### Platform Infrastructure (task-agnostic)
+
+- [ ] **Per-workspace `.adk-claw.yaml`**: Load config from the workspace root, not just global/project. Workspace config specifies credentials and MCP servers.
+- [ ] **Credential injection**: Pass workspace-level env vars (from config or K8s Secrets) into the Runtime before agent execution.
+- [ ] **External MCP wiring**: Connect external MCP servers (GitHub, Gmail, etc.) based on workspace config → `McpToolset`.
+- [ ] **Binding management**: CLI command or Discord command to bind a channel to a workspace path (e.g., `/bind /workspaces/ha-maintenance`).
+- [ ] **K8s Deployment manifest**: Deployment + Secret + PVC for persistent Discord bot hosting.
+
+### Not Platform Concerns (workspace-level, via AGENTS.md + skills)
+
+These are examples of task-specific behavior that should **not** be hardcoded:
+- Git clone/branch/PR workflows → workspace AGENTS.md
+- Calendar management → workspace AGENTS.md + calendar MCP
+- Triage instructions → workspace AGENTS.md
+
+---
+
+## Phase 2: Multi-Workspace
+
+- [ ] **SubprocessRuntime**: Per-workspace subprocess with own CWD for parallel execution.
+- [ ] **Lane Queue**: `collect`/`followup`/`steer` modes. See [11-queue-concurrency.md](./11-queue-concurrency.md).
+- [ ] **Config-driven runtime selection**: `.adk-claw.yaml` specifies which runtime to use.
+
+---
+
+## Phase 3: Production
+
+- [ ] **KubeJobRuntime**: K8s Job + PVC per workspace.
+- [ ] **The Pulse**: Cron-based proactive triggers (daily triage, monitoring).
+- [ ] **A2A Adapter**: Expose the host as an A2A-compliant agent.
+- [ ] **Security policy per channel**: Configure `permission_mode` per workspace/channel.
+- [ ] **Auth profile management**: Scoped credentials injected per workspace from a secure store.
