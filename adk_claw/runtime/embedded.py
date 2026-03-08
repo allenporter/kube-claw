@@ -18,6 +18,8 @@ from adk_coder.agent_factory import build_runner
 from adk_coder.projects import find_project_root, get_project_id
 from adk_coder.summarize import summarize_tool_call
 from adk_claw.domain.models import EventType, OrchestratorEvent
+from adk_claw.memory import FileMemoryStore
+from adk_claw.mcp.memory_tool import MemoryToolSet
 from adk_claw.runtime.mcp_support import McpSupport
 
 logger = logging.getLogger(__name__)
@@ -39,6 +41,11 @@ class EmbeddedRuntime:
     ) -> None:
         self._model = model
         self._permission_mode = permission_mode
+        self._runners: dict[str, Any] = {}
+
+        # Initialize memory store in ~/.adk-claw/memory
+        base_memory_path = Path.home() / ".adk-claw" / "memory"
+        self._memory_store = FileMemoryStore(base_memory_path)
 
     async def execute(
         self,
@@ -66,12 +73,28 @@ class EmbeddedRuntime:
         os.chdir(ws)
 
         try:
-            runner = build_runner(
-                model=self._model,
-                permission_mode=self._permission_mode,
-                workspace_path=ws,
-                extra_tools=mcp_args.get("extra_tools"),
-            )
+            runner = self._runners.get(session_id)
+            if not runner:
+                logger.info(f"Building new runner for session {session_id}")
+
+                # Gather all extra tools
+                extra_tools = list(mcp_args.get("extra_tools") or [])
+
+                # Add Memory tools
+                memory_tools = MemoryToolSet(
+                    self._memory_store, workspace_id=session_id
+                )
+                extra_tools.extend(memory_tools.get_tools())
+
+                runner = build_runner(
+                    model=self._model,
+                    permission_mode=self._permission_mode,
+                    workspace_path=ws,
+                    extra_tools=extra_tools,
+                )
+                self._runners[session_id] = runner
+            else:
+                logger.debug(f"Reusing cached runner for session {session_id}")
 
             project_root = find_project_root(ws)
             user_id = get_project_id(project_root)

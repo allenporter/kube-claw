@@ -62,3 +62,53 @@ async def test_key_sanitization(store: FileMemoryStore) -> None:
     """Keys with slashes are sanitized for filesystem safety."""
     await store.put("ws1", "path/to/key", "value")
     assert await store.get("ws1", "path/to/key") == "value"
+
+
+@pytest.mark.asyncio
+async def test_journal_round_trip(store: FileMemoryStore) -> None:
+    """Journal entries can be appended and read back."""
+    from datetime import date as dt_date
+
+    today = dt_date.today().isoformat()
+    await store.append_journal("ws1", "Entry 1")
+    result = await store.read_journal("ws1", today)
+    assert result
+    assert "Entry 1" in result
+
+
+@pytest.mark.asyncio
+async def test_journal_append(store: FileMemoryStore) -> None:
+    """Journal entries append to the same file."""
+    from datetime import date as dt_date
+
+    today = dt_date.today().isoformat()
+    await store.append_journal("ws1", "First")
+    await store.append_journal("ws1", "Second")
+    result = await store.read_journal("ws1", today)
+    assert result
+    assert "First" in result
+    assert "Second" in result
+
+
+@pytest.mark.asyncio
+async def test_list_journals(store: FileMemoryStore) -> None:
+    """list_journals returns a sorted list of dates."""
+    await store.append_journal("ws1", "Entry 1")
+    # Simulate a different date by manually creating a file
+    journal_dir = store._workspace_dir("ws1") / "journal"
+    journal_dir.mkdir(parents=True, exist_ok=True)
+    (journal_dir / "2023-01-01.md").write_text("Old stuff")
+
+    dates = await store.list_journals("ws1")
+    assert "2023-01-01" in dates
+    assert len(dates) >= 2
+    assert dates[0] >= dates[1]  # Sorted reverse chronological
+
+
+@pytest.mark.asyncio
+async def test_long_term_memory(store: FileMemoryStore) -> None:
+    """MEMORY.md acts as long-term storage."""
+    await store.put("ws1", "MEMORY", "Project Goals: Build a better claw.")
+    result = await store.get("ws1", "MEMORY")
+    assert result
+    assert "Project Goals" in result

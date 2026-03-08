@@ -23,6 +23,12 @@ class MemoryStore(Protocol):
 
     async def list_keys(self, workspace_id: str) -> list[str]: ...
 
+    async def append_journal(self, workspace_id: str, content: str) -> None: ...
+
+    async def read_journal(self, workspace_id: str, date: str) -> str | None: ...
+
+    async def list_journals(self, workspace_id: str) -> list[str]: ...
+
 
 class FileMemoryStore:
     """MemoryStore backed by JSON files in the workspace.
@@ -41,6 +47,9 @@ class FileMemoryStore:
         # Sanitize key to be filesystem-safe
         safe_key = key.replace("/", "_").replace("\\", "_")
         return self._workspace_dir(workspace_id) / f"{safe_key}.json"
+
+    def _journal_path(self, workspace_id: str, date: str) -> Path:
+        return self._workspace_dir(workspace_id) / "journal" / f"{date}.md"
 
     async def get(self, workspace_id: str, key: str) -> str | None:
         """Retrieve a value by key, or ``None`` if not found."""
@@ -68,3 +77,33 @@ class FileMemoryStore:
         if not ws_dir.exists():
             return []
         return [p.stem for p in ws_dir.glob("*.json")]
+
+    async def append_journal(self, workspace_id: str, content: str) -> None:
+        """Append content to today's journal."""
+        from datetime import date as dt_date
+
+        today = dt_date.today().isoformat()
+        path = self._journal_path(workspace_id, today)
+        path.parent.mkdir(parents=True, exist_ok=True)
+
+        with open(path, "a", encoding="utf-8") as f:
+            f.write(f"\n{content}\n")
+        logger.debug("Appended to journal for workspace '%s'", workspace_id)
+
+    async def read_journal(self, workspace_id: str, date: str) -> str | None:
+        """Read a journal for a specific date (YYYY-MM-DD)."""
+        path = self._journal_path(workspace_id, date)
+        if not path.exists():
+            return None
+        try:
+            return path.read_text(encoding="utf-8")
+        except OSError as e:
+            logger.warning("Failed to read journal for date '%s': %s", date, e)
+            return None
+
+    async def list_journals(self, workspace_id: str) -> list[str]:
+        """List all available journal dates for a workspace."""
+        journal_dir = self._workspace_dir(workspace_id) / "journal"
+        if not journal_dir.exists():
+            return []
+        return sorted([p.stem for p in journal_dir.glob("*.md")], reverse=True)
