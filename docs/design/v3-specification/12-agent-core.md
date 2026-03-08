@@ -133,7 +133,7 @@ adk-coder/                   # CLI stays thin
 ├── tui.py                 # Textual UI
 └── depends on: adk-coding-agent
 
-kube-claw/                 # Orchestrator
+adk-claw/                 # Orchestrator
 ├── orchestrator/
 ├── gateway/
 └── depends on: adk-coding-agent
@@ -147,7 +147,7 @@ kube-claw/                 # Orchestrator
 KubeClaw depends on `adk-coder` as a library and imports from it directly:
 
 ```python
-# kube_claw/orchestrator/orchestrator.py
+# adk_claw/orchestrator/orchestrator.py
 from adk_coder.agent_factory import build_adk_agent
 from adk_coder.summarize import summarize_tool_call
 ```
@@ -176,7 +176,7 @@ The `CustomPolicyEngine` is already decoupled from the TUI — it returns `Polic
 `adk-coder`'s settings system supports two fields today: `default_model` and `permission_mode`. KubeClaw extends this with queue and channel config:
 
 ```yaml
-# .kube-claw.yaml (project-level) or ~/.kube-claw/config.yaml (global)
+# .adk-claw.yaml (project-level) or ~/.adk-claw/config.yaml (global)
 
 agent:
   model: gemini-3-flash-preview
@@ -222,13 +222,13 @@ The KubeClaw codebase is structured around the embedded executor model:
 
 | Module | Purpose |
 |---|---|
-| `kube_claw/orchestrator/embedded.py` | `EmbeddedOrchestrator` — imports `build_adk_agent()`, runs agent via `Runner.run_async()` |
-| `kube_claw/orchestrator/base.py` | Abstract `Orchestrator` interface |
-| `kube_claw/gateway/` | `ChannelAdapter` protocol for Discord, CLI, A2A, GitHub adapters |
-| `kube_claw/host/host.py` | `ClawHost` — wires binding table + orchestrator, provides channel-agnostic interface |
-| `kube_claw/binding/` | `BindingTable` — maps `(protocol, channel_id, author_id)` → `WorkspaceContext` |
-| `kube_claw/domain/models.py` | Core domain types: `InboundMessage`, `OrchestratorEvent`, `ClawIdentity`, `WorkspaceContext` |
-| `kube_claw/mcp/` | External MCP server configuration |
+| `adk_claw/orchestrator/embedded.py` | `EmbeddedOrchestrator` — imports `build_adk_agent()`, runs agent via `Runner.run_async()` |
+| `adk_claw/orchestrator/base.py` | Abstract `Orchestrator` interface |
+| `adk_claw/gateway/` | `ChannelAdapter` protocol for Discord, CLI, A2A, GitHub adapters |
+| `adk_claw/host/host.py` | `ClawHost` — wires binding table + orchestrator, provides channel-agnostic interface |
+| `adk_claw/binding/` | `BindingTable` — maps `(protocol, channel_id, author_id)` → `WorkspaceContext` |
+| `adk_claw/domain/models.py` | Core domain types: `InboundMessage`, `OrchestratorEvent`, `ClawIdentity`, `WorkspaceContext` |
+| `adk_claw/mcp/` | External MCP server configuration |
 
 ---
 

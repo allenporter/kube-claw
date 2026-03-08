@@ -64,7 +64,7 @@ Hooks fire on events like `pre_tool_use`, `post_tool_use`, `on_message`, etc.
 - DM mode settings
 - Dangerous skill installations
 
-**Gap**: A `kube-claw security audit` command should check:
+**Gap**: A `adk-claw security audit` command should check:
 - Network policies on agent pods
 - PVC mount permissions
 - Auth profile scoping

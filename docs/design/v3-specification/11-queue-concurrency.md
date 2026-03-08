@@ -54,7 +54,7 @@ Typing indicators and "thinking..." status updates fire **on enqueue** (Stage 1)
 ### Configuration
 
 ```yaml
-# kube-claw agent config
+# adk-claw agent config
 queue:
   max_concurrent: 4        # Global cap across all lanes
   mode: collect            # Default queue mode (see §3)

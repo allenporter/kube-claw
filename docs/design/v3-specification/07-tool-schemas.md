@@ -39,7 +39,7 @@ For tools that need credentials (like GitHub `gh` CLI), **Short-Lived, Scoped Cr
 
 ## 3. External MCP Tools (Remote Servers)
 
-For messaging platforms (Slack, Discord) or infrastructure (DigitalOcean, AWS), tools are accessed via external MCP servers configured in `.kube-claw.yaml`:
+For messaging platforms (Slack, Discord) or infrastructure (DigitalOcean, AWS), tools are accessed via external MCP servers configured in `.adk-claw.yaml`:
 
 ```yaml
 mcp:

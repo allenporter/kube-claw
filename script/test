@@ -8,7 +8,7 @@ cd "$(dirname "$0")/.."
 echo "==> Running tests..."
 
 if command -v uv >/dev/null 2>&1; then
-  uv run pytest --cov=kube_claw --cov-report=term-missing "$@"
+  uv run pytest --cov=adk_claw --cov-report=term-missing "$@"
 else
-  pytest --cov=kube_claw --cov-report=term-missing "$@"
+  pytest --cov=adk_claw --cov-report=term-missing "$@"
 fi

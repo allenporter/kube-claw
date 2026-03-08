@@ -1181,7 +1181,7 @@ wheels = [
 ]
 
 [[package]]
-name = "kube-claw"
+name = "adk-claw"
 version = "0.0.1"
 source = { editable = "." }
 dependencies = [

@@ -19,7 +19,7 @@ This component acts as a **Repository** in the Domain layer, decoupling the spec
 
 from abc import ABC, abstractmethod
 
-from kube_claw.domain.models import WorkspaceContext
+from adk_claw.domain.models import WorkspaceContext
 
 
 class BindingTable(ABC):

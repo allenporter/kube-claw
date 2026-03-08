@@ -5,7 +5,7 @@ import os
 import pytest
 from unittest.mock import AsyncMock
 
-from kube_claw.mcp.server import create_mcp_server
+from adk_claw.mcp.server import create_mcp_server
 
 
 @pytest.fixture

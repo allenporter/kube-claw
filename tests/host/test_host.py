@@ -2,7 +2,7 @@
 
 import pytest
 
-from kube_claw.host.host import ClawHost
+from adk_claw.host.host import ClawHost
 
 
 @pytest.fixture

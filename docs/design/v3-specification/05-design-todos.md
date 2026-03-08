@@ -8,7 +8,7 @@ This document tracks the outstanding design gaps and tasks that need to be addre
 - [ ] **PVC Management**: Define how persistent volumes for workspaces are provisioned and attached to lanes (e.g., dynamic vs. static provisioning).
 
 ## 2. Data Modeling & Identity
-- [x] **Formal Binding Table Schema**: Defined in `kube_claw/binding/table.py`.
+- [x] **Formal Binding Table Schema**: Defined in `adk_claw/binding/table.py`.
 - [ ] **Auth Profile Injection**: Design the secure mechanism for injecting credentials (like GitHub tokens) into the executor environment (e.g., K8s Secrets or dynamic env injection).
 
 ## 3. Communication & Protocol
@@ -30,5 +30,5 @@ This document tracks the outstanding design gaps and tasks that need to be addre
 - [x] **Create Testing Fakes**: Implemented `InMemoryBindingTable`.
 - [x] **Embedded Orchestrator**: Implemented `EmbeddedOrchestrator` with `adk-coder` integration.
 - [ ] **Channel Adapters**: Implement `DiscordAdapter`, `A2AAdapter`, etc. using the `ChannelAdapter` protocol.
-- [ ] **YAML Configuration**: Implement config loader for `.kube-claw.yaml`.
+- [ ] **YAML Configuration**: Implement config loader for `.adk-claw.yaml`.
 - [ ] **Memory Store**: Implement cross-session `MemoryStore` for agent notes.

@@ -3,13 +3,13 @@
 import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
 
-from kube_claw.binding.fakes import InMemoryBindingTable
-from kube_claw.domain.models import (
+from adk_claw.binding.fakes import InMemoryBindingTable
+from adk_claw.domain.models import (
     ClawIdentity,
     InboundMessage,
     WorkspaceContext,
 )
-from kube_claw.orchestrator.embedded import EmbeddedOrchestrator
+from adk_claw.orchestrator.embedded import EmbeddedOrchestrator
 
 
 @pytest.fixture
@@ -78,9 +78,9 @@ async def test_orchestrator_yields_status_event(
 
     with (
         patch(
-            "kube_claw.orchestrator.embedded.build_adk_agent", return_value=mock_agent
+            "adk_claw.orchestrator.embedded.build_adk_agent", return_value=mock_agent
         ),
-        patch("kube_claw.orchestrator.embedded.Runner") as mock_runner_cls,
+        patch("adk_claw.orchestrator.embedded.Runner") as mock_runner_cls,
     ):
         mock_runner = MagicMock()
         mock_runner.run_async = mock_run_async
@@ -91,7 +91,7 @@ async def test_orchestrator_yields_status_event(
         mock_session.id = "session-1"
 
         with patch(
-            "kube_claw.orchestrator.embedded.InMemorySessionService"
+            "adk_claw.orchestrator.embedded.InMemorySessionService"
         ) as mock_svc_cls:
             mock_svc = AsyncMock()
             mock_svc.create_session = AsyncMock(return_value=mock_session)

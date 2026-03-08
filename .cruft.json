@@ -7,8 +7,8 @@
       "full_name": "Allen Porter",
       "email": "allen.porter@gmail.com",
       "github_username": "allenporter",
-      "project_name": "kube_claw",
-      "description": "A Kubernetes claw for managing resources",
+      "project_name": "adk_claw",
+      "description": "A Claw based on Google Agent Development Kit (ADK)",
       "version": "0.0.1",
       "_template": "http://github.com/allenporter/cookiecutter-python"
     }

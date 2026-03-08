@@ -44,7 +44,7 @@ Tools that require sensitive credentials or host-side state.
 *   **SIGTERM**: The worker performs a "Graceful Exit." It flushes any pending logs to the workspace and notifies the Host via a `worker_shutdown` event before closing the socket.
 *   **Persistence of Intent**: Because the `workspace_path` is mounted from a PVC, the agent's progress (logs, `CLAUDE.md`, modified files) survives even if the worker pod is restarted.
 
-## 5. Directory Structure (`kube_claw/core_v3/worker/`)
+## 5. Directory Structure (`adk_claw/core_v3/worker/`)
 
 *   `entrypoint.py`: Main process loop and signal configuration.
 *   `server.py`: Asyncio UDS server and JSON-RPC dispatcher.

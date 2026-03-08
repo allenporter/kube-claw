@@ -23,7 +23,7 @@
 - [ ] Add `adk-coder` support for switching models in the middle of conversation
 - [ ] Add `code-explorer` skill if missing.
 
-- [ ] Implement Claw-RPC Handler in `kube_claw/agent.py` (Host side).
+- [ ] Implement Claw-RPC Handler in `adk_claw/agent.py` (Host side).
 - [ ] Implement Unix Domain Socket listener in `KubernetesJobScheduler`.
 - [ ] Refine `agent_entrypoint.py` with actual LLM integration (LiteLLM/Claude API).
 - [ ] Add `CLAUDE.md` auto-discovery and persistence logic to Worker.

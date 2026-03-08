@@ -20,8 +20,8 @@ from google.genai import types as genai_types
 from adk_coder.agent_factory import build_adk_agent
 from adk_coder.summarize import summarize_tool_call
 
-from kube_claw.binding.table import BindingTable
-from kube_claw.domain.models import EventType, InboundMessage, OrchestratorEvent
+from adk_claw.binding.table import BindingTable
+from adk_claw.domain.models import EventType, InboundMessage, OrchestratorEvent
 
 from .base import Orchestrator
 
@@ -69,11 +69,11 @@ class EmbeddedOrchestrator(Orchestrator):
         session_service = InMemorySessionService()
         runner = Runner(
             agent=agent,
-            app_name="kube_claw",
+            app_name="adk_claw",
             session_service=session_service,
         )
         session = await session_service.create_session(
-            app_name="kube_claw",
+            app_name="adk_claw",
             user_id=lane_key,
         )
 

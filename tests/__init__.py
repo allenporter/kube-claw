@@ -1,1 +1,1 @@
-"""Tests for kube_claw."""
+"""Tests for adk_claw."""

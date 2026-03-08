@@ -13,6 +13,6 @@
 ## Initialization Parameters
 When prompted by `scruft create`, common parameters include:
 - `project_name`: Human-readable name
-- `project_slug`: Folder/package name (e.g., `kube_claw`)
+- `project_slug`: Folder/package name (e.g., `adk_claw`)
 - `author_name`: e.g., `Allen Porter`
 - `github_username`: e.g., `allenporter`

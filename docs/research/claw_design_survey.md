@@ -1,6 +1,6 @@
 # Claw Design Survey & Learnings
 
-This document summarizes the current design patterns and architectural decisions found in the `v1_legacy/kube_claw` codebase. These learnings serve as a foundation for the evolution of the Claw agent.
+This document summarizes the current design patterns and architectural decisions found in the `v1_legacy/adk_claw` codebase. These learnings serve as a foundation for the evolution of the Claw agent.
 
 ## 1. Core Architecture: The "Controller" Pattern
 The Claw agent acts as a **bridge/controller** between two primary abstractions:
@@ -8,18 +8,18 @@ The Claw agent acts as a **bridge/controller** between two primary abstractions:
 - **JobScheduler**: Handles execution of tasks (e.g., Kubernetes).
 
 ### Learnings:
-- **Separation of Concerns**: The `ClawAgent` class (`v1_legacy/kube_claw/agent.py`) doesn't know *how* a message is received or *how* a job is run. It only knows how to coordinate them.
+- **Separation of Concerns**: The `ClawAgent` class (`v1_legacy/adk_claw/agent.py`) doesn't know *how* a message is received or *how* a job is run. It only knows how to coordinate them.
 - **Asynchronous Loop**: The agent maintains a background monitoring task (`_monitor_jobs`) to poll for status changes, decoupling task submission from result reporting.
 
 ## 2. Abstraction via Protocols and ABCs
 The system heavily utilizes Python's `abc.ABC` and `Protocol` to define strict interfaces for drivers.
 
 ### Learnings:
-- **Message Protocol**: A lightweight `Message` protocol (`v1_legacy/kube_claw/core/base.py`) ensures that the agent can work with any communication platform as long as it provides content, author ID, and channel ID.
-- **Driver Pluggability**: Drivers for Discord and Kubernetes are isolated in `v1_legacy/kube_claw/drivers/`. This makes it trivial to swap Kubernetes for a "Fake" scheduler for testing or local development.
+- **Message Protocol**: A lightweight `Message` protocol (`v1_legacy/adk_claw/core/base.py`) ensures that the agent can work with any communication platform as long as it provides content, author ID, and channel ID.
+- **Driver Pluggability**: Drivers for Discord and Kubernetes are isolated in `v1_legacy/adk_claw/drivers/`. This makes it trivial to swap Kubernetes for a "Fake" scheduler for testing or local development.
 
 ## 3. Kubernetes-Native Execution
-The `KubernetesJobScheduler` (`v1_legacy/kube_claw/drivers/kubernetes/scheduler.py`) treats Kubernetes as the "operating system" for the agent.
+The `KubernetesJobScheduler` (`v1_legacy/adk_claw/drivers/kubernetes/scheduler.py`) treats Kubernetes as the "operating system" for the agent.
 
 ### Learnings:
 - **Ephemeral Workers**: Each task (`!run <task>`) spawns a new `V1Job`. This provides strong isolation between tasks.

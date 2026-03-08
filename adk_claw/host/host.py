@@ -12,14 +12,14 @@ See: ADR-004 (Embedded Executor Architecture)
 import logging
 from collections.abc import AsyncIterator
 
-from kube_claw.binding.fakes import InMemoryBindingTable
-from kube_claw.domain.models import (
+from adk_claw.binding.fakes import InMemoryBindingTable
+from adk_claw.domain.models import (
     ClawIdentity,
     InboundMessage,
     OrchestratorEvent,
     WorkspaceContext,
 )
-from kube_claw.orchestrator.embedded import EmbeddedOrchestrator
+from adk_claw.orchestrator.embedded import EmbeddedOrchestrator
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +52,7 @@ class ClawHost:
         workspace_path: str | None = None,
     ) -> None:
         """Pre-populate the binding table with a default workspace."""
-        ws_path = workspace_path or self._workspace_path or "/tmp/kube_claw_workspace"
+        ws_path = workspace_path or self._workspace_path or "/tmp/adk_claw_workspace"
         context = WorkspaceContext(
             workspace_id=f"workspace-{channel_id}",
             metadata={

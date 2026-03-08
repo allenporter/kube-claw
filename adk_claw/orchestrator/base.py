@@ -12,7 +12,7 @@ The Orchestrator is responsible for:
 
 from abc import ABC, abstractmethod
 from collections.abc import AsyncIterator
-from kube_claw.domain.models import InboundMessage, OrchestratorEvent
+from adk_claw.domain.models import InboundMessage, OrchestratorEvent
 
 
 class Orchestrator(ABC):

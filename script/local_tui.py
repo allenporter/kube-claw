@@ -19,10 +19,10 @@ import os
 
 from aioconsole import ainput
 
-# Ensure kube_claw is importable
+# Ensure adk_claw is importable
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from kube_claw.host.host import ClawHost
+from adk_claw.host.host import ClawHost
 
 # --- Styling ---
 RESET = "\033[0m"

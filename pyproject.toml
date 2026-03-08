@@ -3,11 +3,11 @@ build-backend = "setuptools.build_meta"
 requires = ["setuptools>=77.0"]
 
 [project]
-name = "kube_claw"
+name = "adk_claw"
 version = "0.0.1"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
-description = "A Kubernetes claw for managing resources"
+description = "A Claw based on Google Agent Development Kit (ADK)"
 readme = "README.md"
 authors = [{ name = "Allen Porter", email = "allen.porter@gmail.com" }]
 requires-python = ">=3.14"
@@ -17,17 +17,16 @@ dependencies = [
     "aioconsole>=0.8.2",
     "discord-py>=2.3.0",
     "google-adk>=1.25.1",
-    "kubernetes>=35.0.0",
     "pydantic>=2.12.5",
     "mcp>=1.26.0",
     "aiosqlite>=0.22.1",
 ]
 
 [project.urls]
-Source = "https://github.com/allenporter/kube_claw"
+Source = "https://github.com/allenporter/adk_claw"
 
 [tool.setuptools.packages.find]
-include = ["kube_claw*"]
+include = ["adk_claw*"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "strict"

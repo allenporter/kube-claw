@@ -37,7 +37,7 @@ jobs:
       - name: Install dependencies
         run: |
           uv pip install -r requirements_dev.txt
-      - run: pdoc ./kube_claw -o docs/
+      - run: pdoc ./adk_claw -o docs/
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Upload artifact
