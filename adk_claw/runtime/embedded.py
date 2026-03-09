@@ -20,6 +20,7 @@ from adk_coder.summarize import summarize_tool_call
 from adk_claw.domain.models import EventType, OrchestratorEvent
 from adk_claw.memory import load_memory_context
 from adk_claw.runtime.mcp_support import McpSupport
+from adk_claw.workspace_init import initialize_workspace, assemble_instructions
 
 logger = logging.getLogger(__name__)
 
@@ -75,15 +76,22 @@ class EmbeddedRuntime:
                 # Gather all extra tools from MCP
                 extra_tools = list(mcp_args.get("extra_tools") or [])
 
+                # Initialize Workspace (Git, Starter Files)
+                initialize_workspace(ws)
+
                 # Load Memory Guidance
                 memory_guidance = await load_memory_context(ws)
+                # Load Systemic Instructions (SOUL.md, USER.md, etc.)
+                systemic_instructions = assemble_instructions(ws)
+
+                final_instruction = memory_guidance + systemic_instructions
 
                 runner = build_runner(
                     model=self._model,
                     permission_mode=self._permission_mode,
                     workspace_path=ws,
                     extra_tools=extra_tools,
-                    instruction=memory_guidance,
+                    instruction=final_instruction,
                 )
 
                 self._runners[session_id] = runner
