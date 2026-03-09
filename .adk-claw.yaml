@@ -1,0 +1,9 @@
+agent:
+  model: "gemini-3-flash-preview"
+  permission_mode: "auto"
+  env:
+    TEST_VAR: "claw-is-alive"
+mcpServers:
+  fetch:
+    command: "uv"
+    args: ["run", "--with", "mcp-server-fetch", "mcp-server-fetch"]
