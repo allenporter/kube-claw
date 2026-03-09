@@ -22,31 +22,36 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+
 async def main():
     parser = argparse.ArgumentParser(description="Run adk-claw GitHub PR bot.")
     parser.add_argument("--pr", type=int, required=True, help="PR number to monitor")
     parser.add_argument("--workspace", type=str, help="Path to workspace")
-    parser.add_argument("--interval", type=int, default=60, help="Polling interval in seconds")
-    parser.add_argument("--authors", type=str, help="Comma-separated list of allowed authors")
-    
+    parser.add_argument(
+        "--interval", type=int, default=60, help="Polling interval in seconds"
+    )
+    parser.add_argument(
+        "--authors", type=str, help="Comma-separated list of allowed authors"
+    )
+
     args = parser.parse_args()
-    
+
     workspace_path = args.workspace or str(Path.cwd())
     config = load_config(workspace_path=Path(workspace_path))
-    
+
     host = ClawHost(workspace_path=workspace_path, config=config)
-    
+
     allowed_authors = args.authors.split(",") if args.authors else []
-    
+
     adapter = GithubAdapter(
         host=host,
         pr_number=args.pr,
         allowed_authors=allowed_authors,
-        interval=args.interval
+        interval=args.interval,
     )
-    
+
     logger.info(f"Monitoring PR #{args.pr} in {workspace_path}")
-    
+
     try:
         await adapter.start()
         # Keep the script running
@@ -57,6 +62,7 @@ async def main():
     finally:
         await adapter.stop()
         await host.shutdown()
+
 
 if __name__ == "__main__":
     try:

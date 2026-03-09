@@ -8,9 +8,7 @@ and routes them to the adk-claw host.
 import asyncio
 import json
 import logging
-import subprocess
 from datetime import datetime, timezone
-from typing import Any
 
 from adk_claw.domain.models import EventType
 from adk_claw.host.host import ClawHost
@@ -103,7 +101,7 @@ class GithubAdapter:
 
             if created_at > self._last_checked:
                 author = comment["author"]["login"]
-                
+
                 # Check if author is allowed
                 if self._allowed_authors and author not in self._allowed_authors:
                     logger.debug(f"Ignoring comment from unauthorized author: {author}")
@@ -111,11 +109,11 @@ class GithubAdapter:
 
                 body = comment["body"]
                 logger.info(f"Processing GitHub comment from {author}: {body[:80]}")
-                
+
                 # Update temporary newest timestamp
                 if created_at > newest_timestamp:
                     newest_timestamp = created_at
-                
+
                 # Handle the comment asynchronously
                 asyncio.create_task(self._handle_comment(author, body))
 
@@ -153,7 +151,9 @@ class GithubAdapter:
 
         except Exception:
             logger.exception("Error handling GitHub comment")
-            await self._post_comment("⚠️ An error occurred while processing your request.")
+            await self._post_comment(
+                "⚠️ An error occurred while processing your request."
+            )
 
     async def _post_comment(self, body: str) -> None:
         """Post a comment back to the PR using gh CLI."""
