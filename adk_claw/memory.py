@@ -13,17 +13,41 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 
+def _read_summary(path: Path, max_chars: int = 500) -> str:
+    """Reads the beginning of a file to provide a quick summary."""
+    try:
+        content = path.read_text().strip()
+        if not content:
+            return ""
+        # Get first few lines or characters
+        summary = content[:max_chars].replace("\n", " ")
+        if len(content) > max_chars:
+            summary += "..."
+        return summary
+    except Exception:
+        return ""
+
+
 async def load_memory_context(workspace_path: Path) -> str:
     """
-    Returns a guidance block for the agent about available memory files.
+    Returns a guidance block for the agent about available memory files
+    with brief summaries of their content.
     """
-    available_files = []
+    sections = []
 
     # 1. Check for stable files
-    stable_files = ["MEMORY.md", "USER.md", "SOUL.md"]
+    stable_files = ["USER.md", "SOUL.md", "MEMORY.md"]
+    found_stable = []
     for filename in stable_files:
-        if (workspace_path / filename).exists():
-            available_files.append(f"- `{filename}`")
+        path = workspace_path / filename
+        if path.exists():
+            summary = _read_summary(path)
+            found_stable.append(
+                f"- `{filename}`: {summary}" if summary else f"- `{filename}`"
+            )
+
+    if found_stable:
+        sections.append("### Core Memory\n" + "\n".join(found_stable))
 
     # 2. Check for recent journals
     today = dt_date.today()
@@ -33,12 +57,17 @@ async def load_memory_context(workspace_path: Path) -> str:
     for d in [yesterday, today]:
         journal_path = workspace_path / "memory" / f"{d.isoformat()}.md"
         if journal_path.exists():
-            found_journals.append(f"- `memory/{d.isoformat()}.md`")
+            summary = _read_summary(journal_path)
+            found_journals.append(
+                f"- `memory/{d.isoformat()}.md`: {summary}"
+                if summary
+                else f"- `memory/{d.isoformat()}.md`"
+            )
 
     if found_journals:
-        available_files.extend(found_journals)
+        sections.append("### Recent Journals\n" + "\n".join(found_journals))
 
-    if not available_files:
+    if not sections:
         # Provide base guidance even if no files exist yet
         return (
             "\n## Memory Guidance\n"
@@ -48,11 +77,11 @@ async def load_memory_context(workspace_path: Path) -> str:
             "3. DO NOT ask for permission to read them; they are yours to manage.\n"
         )
 
-    files_list = "\n".join(available_files)
+    content_block = "\n\n".join(sections)
     return (
         "\n## Memory Guidance\n"
-        "The following memory files exist in this workspace:\n"
-        f"{files_list}\n\n"
+        "The following memory files exist in this workspace. Quick summaries provided:\n\n"
+        f"{content_block}\n\n"
         "1. READ these files if you need to understand long-term facts or recent progress.\n"
         "2. UPDATE them yourself using your file tools to record new information.\n"
         "3. DO NOT use specialized tools; just treat them as normal project files.\n"

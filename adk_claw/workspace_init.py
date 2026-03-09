@@ -73,7 +73,16 @@ def initialize_workspace(project_root: Path) -> None:
                 except Exception as e:
                     logger.warning(f"Failed to create {filename}: {e}")
 
-    # 4. BOOTSTRAP.md (only on brand new .adk)
+    # 4. memory/ directory
+    memory_dir = project_root / "memory"
+    if not memory_dir.exists():
+        try:
+            memory_dir.mkdir(parents=True, exist_ok=True)
+            logger.info("Created memory/ directory")
+        except Exception as e:
+            logger.warning(f"Failed to create memory directory: {e}")
+
+    # 5. BOOTSTRAP.md (only on brand new .adk)
     bootstrap_path = project_root / "BOOTSTRAP.md"
     if is_new_adk and not bootstrap_path.exists():
         try:

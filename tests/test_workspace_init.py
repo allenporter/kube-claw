@@ -13,6 +13,7 @@ def test_workspace_initialization(tmp_path):
         "TOOLS.md",
         "HEARTBEAT.md",
         "BOOTSTRAP.md",
+        "memory",
         ".adk",
         ".git",
     ]
