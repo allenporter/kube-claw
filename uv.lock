@@ -18,7 +18,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "adk-coder", specifier = ">=0.1.2" },
+    { name = "adk-coder", specifier = ">=0.1.4" },
     { name = "aioconsole", specifier = ">=0.8.2" },
     { name = "aiosqlite", specifier = ">=0.22.1" },
     { name = "discord-py", specifier = ">=2.3.0" },
@@ -29,7 +29,7 @@ requires-dist = [
 
 [[package]]
 name = "adk-coder"
-version = "0.1.2"
+version = "0.1.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "click" },
@@ -41,9 +41,9 @@ dependencies = [
     { name = "rich" },
     { name = "textual" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/a0/b9/6cac2d41d2c63425fb4db046fe53806cf9da403fd0f42687f3ee81b3fefb/adk_coder-0.1.2.tar.gz", hash = "sha256:e54d0e6370832ff7133af336f0f6517e7b03b35ee2370fb84577eb0747a8ce33", size = 66715, upload-time = "2026-03-08T18:17:46.488Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/55/13/7046cf94ae948e9fd96a56bff88f70ed48083782084950c754265e75c4b1/adk_coder-0.1.4.tar.gz", hash = "sha256:7dc2a72460f01c233388ec64d4da0f3e8bd7b2a834f255275c1071b1dc2b5343", size = 66816, upload-time = "2026-03-09T04:49:59.464Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/d0/9d/372af053bad0deb6c07dab7e081af301b3df20f3ced75f918f4c5965589a/adk_coder-0.1.2-py3-none-any.whl", hash = "sha256:b04b458bcbe4fb41f70f0cd326a458a9a750e6e1980579f72b67f8702d6ada8a", size = 70206, upload-time = "2026-03-08T18:17:44.91Z" },
+    { url = "https://files.pythonhosted.org/packages/61/ca/2bc6a7ed3a975b1b499aa3beb076eda171f439ffc1f15c845d4e067d978a/adk_coder-0.1.4-py3-none-any.whl", hash = "sha256:add93f63271e160217af3cba398cb2630c3c5b95dd877d6790346a13d35340af", size = 70262, upload-time = "2026-03-09T04:49:58.163Z" },
 ]
 
 [[package]]
