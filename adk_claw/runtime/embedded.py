@@ -41,7 +41,6 @@ class EmbeddedRuntime:
     ) -> None:
         self._model = model
         self._permission_mode = permission_mode
-        self._runners: dict[str, Any] = {}
 
     async def execute(
         self,
@@ -69,34 +68,26 @@ class EmbeddedRuntime:
         os.chdir(ws)
 
         try:
-            runner = self._runners.get(session_id)
-            if not runner:
-                logger.info(f"Building new runner for session {session_id}")
+            # Initialize Workspace (Git, Starter Files)
+            initialize_workspace(ws)
 
-                # Gather all extra tools from MCP
-                extra_tools = list(mcp_args.get("extra_tools") or [])
+            # Load Memory Guidance
+            memory_guidance = await load_memory_context(ws)
+            # Load Systemic Instructions (SOUL.md, USER.md, etc.)
+            systemic_instructions = assemble_instructions(ws)
 
-                # Initialize Workspace (Git, Starter Files)
-                initialize_workspace(ws)
+            final_instruction = memory_guidance + systemic_instructions
 
-                # Load Memory Guidance
-                memory_guidance = await load_memory_context(ws)
-                # Load Systemic Instructions (SOUL.md, USER.md, etc.)
-                systemic_instructions = assemble_instructions(ws)
-
-                final_instruction = memory_guidance + systemic_instructions
-
-                runner = build_runner(
-                    model=self._model,
-                    permission_mode=self._permission_mode,
-                    workspace_path=ws,
-                    extra_tools=extra_tools,
-                    instruction=final_instruction,
-                )
-
-                self._runners[session_id] = runner
-            else:
-                logger.debug(f"Reusing cached runner for session {session_id}")
+            # Build a fresh runner for each execution to avoid session staleness issues
+            # in multi-turn/concurrent environments.
+            logger.debug(f"Building fresh runner for session {session_id}")
+            runner = build_runner(
+                model=self._model,
+                permission_mode=self._permission_mode,
+                workspace_path=ws,
+                extra_tools=list(mcp_args.get("extra_tools") or []),
+                instruction=final_instruction,
+            )
 
             project_root = find_project_root(ws)
             user_id = get_project_id(project_root)
