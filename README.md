@@ -18,6 +18,7 @@ An AI agent orchestrator built on [Google ADK](https://google.github.io/adk-docs
 │                                              │
 │  Channel Adapters:                           │
 │    ShellAdapter (TUI)  DiscordAdapter        │
+│    GithubAdapter (PRs)                       │
 └──────────────────────────────────────────────┘
 ```
 
@@ -97,6 +98,25 @@ GOOGLE_API_KEY=<your-key> DISCORD_TOKEN=<bot-token> python3 script/discord_bot.p
 
 The bot will respond when @mentioned in a channel or sent a DM.
 Messages are routed through the same orchestrator as the TUI.
+
+### 6. GitHub PR Bot (optional)
+
+Run the agent as a GitHub bot that responds to comments on a specific PR.
+
+**Setup:**
+
+1. Install the [GitHub CLI (gh)](https://cli.github.com/)
+2. Authenticate: `gh auth login`
+3. Ensure the bot has access to the repository
+
+**Run:**
+
+```bash
+GOOGLE_API_KEY=<your-key> python3 script/github_bot.py --pr <pr-number> --workspace .
+```
+
+The bot will poll the PR for comments (every 60s by default) and respond to
+allowed authors. It uses the `gh` CLI to fetch comments and post replies.
 
 ## Project Structure
 
