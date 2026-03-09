@@ -8,6 +8,7 @@ and routes them to the adk-claw host.
 import asyncio
 import json
 import logging
+import subprocess
 from datetime import datetime, timezone
 
 from adk_claw.domain.models import EventType
@@ -68,8 +69,16 @@ class GithubAdapter:
             await asyncio.sleep(self._interval)
 
     async def _poll(self) -> None:
-        # Fetch PR comments using gh CLI
-        cmd = ["gh", "pr", "view", str(self._pr_number), "--json", "comments"]
+        # Fetch PR comments and state using gh CLI
+        # Note: 'comments' are issue-level, 'reviews' contain line-level comments
+        cmd = [
+            "gh",
+            "pr",
+            "view",
+            str(self._pr_number),
+            "--json",
+            "comments,reviews,state",
+        ]
         try:
             process = await asyncio.create_subprocess_exec(
                 *cmd,
@@ -91,35 +100,68 @@ class GithubAdapter:
             logger.error("Failed to parse JSON from gh CLI")
             return
 
-        comments = data.get("comments", [])
+        # Check PR state
+        state = data.get("state")
+        if state in ["CLOSED", "MERGED"]:
+            logger.info(f"PR #{self._pr_number} is {state}. Stopping adapter.")
+            await self.stop()
+            return
+
         newest_timestamp = self._last_checked
 
+        # 1. Process Issue-level comments
+        comments = data.get("comments", [])
         for comment in comments:
-            created_at_str = comment["createdAt"]
-            # createdAt is ISO 8601 like "2023-01-01T00:00:00Z"
-            created_at = datetime.fromisoformat(created_at_str.replace("Z", "+00:00"))
+            newest_timestamp = await self._process_comment(comment, newest_timestamp)
 
-            if created_at > self._last_checked:
-                author = comment["author"]["login"]
-
-                # Check if author is allowed
-                if self._allowed_authors and author not in self._allowed_authors:
-                    logger.debug(f"Ignoring comment from unauthorized author: {author}")
-                    continue
-
-                body = comment["body"]
-                logger.info(f"Processing GitHub comment from {author}: {body[:80]}")
-
-                # Update temporary newest timestamp
-                if created_at > newest_timestamp:
-                    newest_timestamp = created_at
-
-                # Handle the comment asynchronously
-                asyncio.create_task(self._handle_comment(author, body))
+        # 2. Process Review-level comments (line-level)
+        reviews = data.get("reviews", [])
+        for review in reviews:
+            for comment in review.get("comments", []):
+                newest_timestamp = await self._process_comment(
+                    comment, newest_timestamp, is_review=True
+                )
 
         self._last_checked = newest_timestamp
 
-    async def _handle_comment(self, author: str, body: str) -> None:
+    async def _process_comment(
+        self, comment: dict, newest_timestamp: datetime, is_review: bool = False
+    ) -> datetime:
+        created_at_str = comment["createdAt"]
+        created_at = datetime.fromisoformat(created_at_str.replace("Z", "+00:00"))
+
+        if created_at > self._last_checked:
+            author = comment["author"]["login"]
+
+            # Check if author is allowed
+            if self._allowed_authors and author not in self._allowed_authors:
+                logger.debug(f"Ignoring comment from unauthorized author: {author}")
+                return newest_timestamp
+
+            body = comment["body"]
+            comment_id = comment.get("id")
+            logger.info(
+                f"Processing GitHub {'review ' if is_review else ''}comment from {author}: {body[:80]}"
+            )
+
+            # Update temporary newest timestamp
+            if created_at > newest_timestamp:
+                newest_timestamp = created_at
+
+            # Handle the comment asynchronously
+            asyncio.create_task(
+                self._handle_comment(author, body, comment_id, is_review)
+            )
+
+        return newest_timestamp
+
+    async def _handle_comment(
+        self,
+        author: str,
+        body: str,
+        comment_id: str | None = None,
+        is_review: bool = False,
+    ) -> None:
         """Route message to host and post response back to PR."""
         channel_id = f"pr-{self._pr_number}"
         author_id = author
@@ -145,19 +187,56 @@ class GithubAdapter:
 
             if response_parts:
                 full_response = "\n".join(response_parts)
-                await self._post_comment(full_response)
+                await self._post_comment(
+                    full_response, comment_id if is_review else None
+                )
             else:
                 logger.warning("No response generated for GitHub comment.")
 
         except Exception:
             logger.exception("Error handling GitHub comment")
             await self._post_comment(
-                "⚠️ An error occurred while processing your request."
+                "⚠️ An error occurred while processing your request.",
+                comment_id if is_review else None,
             )
 
-    async def _post_comment(self, body: str) -> None:
-        """Post a comment back to the PR using gh CLI."""
-        cmd = ["gh", "pr", "comment", str(self._pr_number), "--body", body]
+    async def _post_comment(self, body: str, reply_to_id: str | None = None) -> None:
+        """Post a comment back to the PR using gh CLI or API."""
+        if reply_to_id:
+            # Use API to reply to a specific review comment
+            # gh api repos/:owner/:repo/pulls/:number/comments/:comment_id/replies -f body='...'
+            # But wait, 'gh' identifies owner/repo automatically from context.
+            # We can use the simplified path.
+            cmd = [
+                "gh",
+                "api",
+                f"repos/{{owner}}/{{repo}}/pulls/{self._pr_number}/comments/{reply_to_id}/replies",
+                "-f",
+                f"body={body}",
+            ]
+            # Actually, gh api needs the full repo or we let it find it.
+            # Better to use a reliable format:
+            repo_result = subprocess.run(
+                ["gh", "repo", "view", "--json", "owner,name"],
+                capture_output=True,
+                text=True,
+            )
+            if repo_result.returncode == 0:
+                repo_data = json.loads(repo_result.stdout)
+                owner = repo_data["owner"]["login"]
+                name = repo_data["name"]
+                cmd[2] = (
+                    f"repos/{owner}/{name}/pulls/{self._pr_number}/comments/{reply_to_id}/replies"
+                )
+            else:
+                # Fallback to general comment if we can't resolve repo
+                logger.error(
+                    "Could not resolve repo for threaded reply, falling back to general comment."
+                )
+                cmd = ["gh", "pr", "comment", str(self._pr_number), "--body", body]
+        else:
+            cmd = ["gh", "pr", "comment", str(self._pr_number), "--body", body]
+
         try:
             process = await asyncio.create_subprocess_exec(
                 *cmd,
@@ -166,8 +245,10 @@ class GithubAdapter:
             )
             stdout, stderr = await process.communicate()
             if process.returncode != 0:
-                logger.error(f"gh pr comment failed: {stderr.decode()}")
+                logger.error(f"gh comment failed: {stderr.decode()}")
             else:
-                logger.info(f"Posted response to PR #{self._pr_number}")
+                logger.info(
+                    f"Posted response to PR #{self._pr_number} (reply={bool(reply_to_id)})"
+                )
         except Exception as e:
             logger.error(f"Failed to post comment to GitHub: {e}")
