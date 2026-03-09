@@ -31,10 +31,12 @@ class GithubAdapter:
         host: ClawHost,
         repository: str,
         poll_interval: int = 60,
+        allowed_authors: list[str] | None = None,
     ) -> None:
         self._host = host
         self._repository = repository
         self._poll_interval = poll_interval
+        self._allowed_authors = allowed_authors
         self._last_comment_id: dict[int, int] = {}  # PR ID -> Last seen comment ID
         self._running = False
 
@@ -104,6 +106,11 @@ class GithubAdapter:
 
         # Simple heuristic: ignore comments from "github-actions" or known bots
         if "[bot]" in author or author == "github-actions":
+            return
+
+        # If allowed_authors is configured, check that the author is in the list
+        if self._allowed_authors and author not in self._allowed_authors:
+            logger.debug(f"Ignoring comment from unauthorized author: {author}")
             return
 
         logger.info(f"New comment on PR #{pr_number} from {author}: {body[:50]}...")
