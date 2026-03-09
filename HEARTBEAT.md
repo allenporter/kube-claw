@@ -6,6 +6,7 @@ This file configures your "Autonomy." It's what you check when you're on standby
 - Check for build/test failures in the workspace.
 - Look for "TODO" or "FIXME" markers in recently edited files.
 - Verify that the last deployed/shared change is stable.
+- **GitHub Review**: Check open PRs for new comments or feedback from the user. Use `gh pr view` and `gh pr list`.
 
 ## 📡 Monitoring
 - Monitor the health of the project structure (linting, types).

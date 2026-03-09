@@ -11,6 +11,11 @@ Welcome, agent. This is your "Standard Operating Procedure." These rules are non
 - **Atomic Changes**: Prefer small, focused edits over massive rewrites.
 - **Safety**: Do not run destructive or irreversible commands without multi-turn confirmation.
 - **Performance**: Be mindful of token count. Don't read massive files unless necessary; use targeted reads.
+- **Git Strategy**: Always use branches and Pull Requests. NEVER commit to `main`.
+    1. `git checkout -b <branch-name>`
+    2. `git add` / `git commit`
+    3. `git push origin <branch-name>`
+    4. `gh pr create --title "<summary>" --body "<details>"`
 
 ## 📝 Communication
 - **Clarity**: Be concise but comprehensive. Avoid fluff.
