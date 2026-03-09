@@ -22,7 +22,8 @@ async def test_load_stable_files(tmp_path: Path) -> None:
 
     context = await load_memory_context(tmp_path)
     assert "## Memory Guidance" in context
-    assert "The following memory files exist" in context
+    assert "Quick summaries provided" in context
+    assert "### Core Memory" in context
     assert "- `MEMORY.md`: Long term memory" in context
     assert "- `USER.md`: User info" in context
 
@@ -46,6 +47,7 @@ async def test_load_journals(tmp_path: Path) -> None:
     (memory_dir / f"{old.isoformat()}.md").write_text("Old journal", encoding="utf-8")
 
     context = await load_memory_context(tmp_path)
+    assert "### Recent Journals" in context
     assert f"- `memory/{today.isoformat()}.md`: Today's journal" in context
     assert f"- `memory/{yesterday.isoformat()}.md`: Yesterday's journal" in context
     assert f"memory/{old.isoformat()}.md" not in context
