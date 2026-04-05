@@ -19,14 +19,19 @@ This document tracks the outstanding design gaps and tasks.
 The platform provides workspace isolation, credential injection, and tool wiring.
 Task-specific behavior lives in each workspace's `AGENTS.md` and skills — not in the claw.
 
-```
-/workspaces/ha-maintenance/
-  AGENTS.md          ← task-specific instructions (skills, not infra)
-  .adk-claw.yaml     ← mcp: [github], env: [GITHUB_TOKEN]
+```text
+~/.adk-claw/                  ← (Tier 1) Global Brain (Persistent Persona)
+  MEMORY.md                   ← Global facts ("User prefers bullet points")
+  SOUL.md
 
-/workspaces/inbox-triage/
-  AGENTS.md          ← different task, different instructions
-  .adk-claw.yaml     ← mcp: [gmail], env: [GMAIL_TOKEN]
+/workspaces/ha-maintenance-session/ ← (Tier 2) Session Workspace
+  .adk-claw.yaml              ← mcp: [github], env: [GITHUB_TOKEN]
+  SESSION.md                  ← Agent scratchpad for this session
+  .git/                       ← Session state tracking
+  src/                        ← (Tier 3) Code target (e.g. src/core)
+
+/workspaces/inbox-triage-session/   ← (Tier 2)
+  .adk-claw.yaml              ← mcp: [gmail], env: [GMAIL_TOKEN]
 ```
 
 ### Platform Infrastructure (task-agnostic)
