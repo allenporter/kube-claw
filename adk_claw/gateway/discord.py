@@ -6,6 +6,8 @@ Connects a Discord bot to the adk-claw host. Listens for
 agent responses back to the channel.
 """
 
+from __future__ import annotations
+
 import logging
 import time
 
@@ -27,7 +29,10 @@ class ProgressTracker:
     """
 
     def __init__(
-        self, channel: discord.abc.Messageable, lane_key: str, adapter: "DiscordAdapter"
+        self,
+        channel: discord.abc.Messageable,
+        lane_key: str | None = None,
+        adapter: "DiscordAdapter" | None = None,
     ) -> None:
         self._channel = channel
         self._lane_key = lane_key
@@ -55,15 +60,15 @@ class ProgressTracker:
 
     async def finalize(self) -> None:
         """Ensure all buffered content is sent and clear the tracker."""
-        await self._sync(force=True, is_finalizing=True)
-        if self._current_message:
+        await self._sync(force=True)
+        if self._current_message and self._adapter:
             self._adapter.clear_active_message(self._current_message.id)
             self._current_message = None
         self._buffer = []
 
-    async def _sync(self, force: bool = False, is_finalizing: bool = False) -> None:
+    async def _sync(self, force: bool = False) -> None:
         """Sync the buffer to Discord, creating or editing messages as needed."""
-        # Use a lock-like mechanism to prevent re-entry during a single sync call
+        # Use a lock-like mechanism to prevent re-entry
         if getattr(self, "_is_syncing", False):
             return
         self._is_syncing = True
@@ -77,52 +82,92 @@ class ProgressTracker:
             if not full_text:
                 return
 
-            # If text is too long, we must split it or truncate it.
-            # For progress tracking, if it's too long for a single edit,
-            # it's usually better to start a new progress message.
-            if len(full_text) > self._max_len:
-                # Close out the current message with truncation notice
-                truncated_text = (
-                    full_text[: self._max_len] + "\n... (continued in next message)"
-                )
+            # Discord has a 2000-char limit for standard messages.
+            # We'll use self._max_len so it can be overridden in tests.
+            max_discord_len = self._max_len
+
+            # Handle length limits
+            if len(full_text) > max_discord_len:
+                # 1. Close current message if it exists
                 if self._current_message:
-                    try:
-                        await self._current_message.edit(content=truncated_text)
-                    except Exception:
-                        logger.warning("Failed to edit message for truncation")
-                    self._adapter.clear_active_message(self._current_message.id)
+                    # Clear current message first so that the next sync creates a new one
+                    if self._adapter:
+                        self._adapter.clear_active_message(self._current_message.id)
                     self._current_message = None
 
-                # Update buffer to only include what hasn't been sent yet
-                # This is a bit tricky since we're appending.
-                # Let's just start a fresh message for the overflow.
-                self._buffer = [full_text[self._max_len :]]
-                full_text = "\n".join(self._buffer)
+                    # Find where to split the buffer so we don't break a markdown block too badly
+                    split_idx = full_text.rfind("\n", 0, max_discord_len)
+                    if split_idx == -1:
+                        split_idx = max_discord_len
+
+                    # Update buffer to keep ONLY the overflow for the next message
+                    remaining_text = full_text[split_idx:].strip()
+                    self._buffer = [remaining_text]
+
+                    # Force the next sync to happen (after debounce) by returning.
+                    return
+                else:
+                    # No current message, but the buffer is ALREADY too long.
+                    split_idx = full_text.rfind("\n", 0, max_discord_len)
+                    if split_idx == -1:
+                        split_idx = max_discord_len
+
+                    chunk = full_text[:split_idx]
+                    try:
+                        self._current_message = await self._channel.send(chunk)
+                        if self._adapter and self._lane_key:
+                            self._adapter.set_active_message(
+                                self._current_message.id, self._lane_key
+                            )
+                        try:
+                            await self._current_message.add_reaction("🛑")
+                        except Exception:
+                            pass
+                    except discord.errors.HTTPException as e:
+                        if e.code == 50035:
+                            logger.error("Discord rejected send (too long) even after chunking")
+                            try:
+                                tiny_chunk = chunk[:1000] + "\n... (hard truncated)"
+                                self._current_message = await self._channel.send(tiny_chunk)
+                            except Exception:
+                                pass
+                        else:
+                            logger.exception("Failed to send initial large chunk")
+                    except Exception:
+                        logger.exception("Failed to send initial large chunk")
+                        return
+
+                    # Update buffer to remove the chunk we just sent
+                    remaining_text = full_text[split_idx:].strip()
+                    self._buffer = [remaining_text]
+
+                    self._last_edit_time = now
+                    return
 
             try:
                 if not self._current_message:
+                    # Send new message
                     self._current_message = await self._channel.send(full_text)
-                    self._adapter.set_active_message(
-                        self._current_message.id, self._lane_key
-                    )
-                    # Add the cancel reaction to the first progress message
+                    if self._adapter and self._lane_key:
+                        self._adapter.set_active_message(
+                            self._current_message.id, self._lane_key
+                        )
                     try:
                         await self._current_message.add_reaction("🛑")
                     except Exception:
                         logger.debug("Could not add reaction to message")
                 else:
+                    # Edit existing message
                     await self._current_message.edit(content=full_text)
                 self._last_edit_time = now
             except discord.errors.HTTPException as e:
-                if e.code == 50035:  # Invalid Form Body (likely too long)
+                if e.code == 50035:  # Invalid Form Body (too long)
                     logger.warning(
-                        "Discord message too long, clearing current message to start fresh"
+                        "Discord message too long (%d chars), resetting current message",
+                        len(full_text),
                     )
+                    # Force a split on next sync by clearing current_message
                     self._current_message = None
-                    # Try once more by sending as a new message
-                    self._current_message = await self._channel.send(
-                        full_text[: self._max_len]
-                    )
                 else:
                     raise
             except Exception:
