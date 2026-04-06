@@ -1,7 +1,6 @@
 import asyncio
 import logging
 import sys
-import uuid
 from pathlib import Path
 from adk_claw.host.host import ClawHost
 from adk_claw.domain.models import EventType
