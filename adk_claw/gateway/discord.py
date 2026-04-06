@@ -7,6 +7,7 @@ agent responses back to the channel.
 """
 
 import logging
+import time
 
 import discord
 
@@ -16,13 +17,82 @@ from adk_claw.host.host import ClawHost
 logger = logging.getLogger(__name__)
 
 
+class ProgressTracker:
+    """
+    Manages a live-updating Discord message for agent progress.
+
+    Handles editing the message with "thoughts" and tool summaries,
+    splitting messages when they hit Discord's 2000-char limit,
+    and debouncing edits to avoid rate-limiting.
+    """
+
+    def __init__(self, channel: discord.abc.Messageable) -> None:
+        self._channel = channel
+        self._current_message: discord.Message | None = None
+        self._buffer: list[str] = []
+        self._last_edit_time = 0.0
+        self._edit_debounce = 1.0  # seconds
+        self._max_len = 1900  # Leave room for formatting
+
+    async def add_event(self, event_type: EventType, content: str) -> None:
+        """Add an event (thought, status, or token) to the tracker."""
+        prefix = ""
+        if event_type == EventType.THOUGHT:
+            prefix = "💭 "
+        elif event_type == EventType.STATUS:
+            prefix = "⚙️ "
+        elif event_type == EventType.ERROR:
+            prefix = "⚠️ "
+
+        formatted = f"{prefix}{content}"
+        self._buffer.append(formatted)
+        await self._sync()
+
+    async def finalize(self) -> None:
+        """Ensure all buffered content is sent and clear the tracker."""
+        await self._sync(force=True)
+        self._current_message = None
+        self._buffer = []
+
+    async def _sync(self, force: bool = False) -> None:
+        """Sync the buffer to Discord, creating or editing messages as needed."""
+        now = time.time()
+        if not force and (now - self._last_edit_time < self._edit_debounce):
+            return
+
+        full_text = "\n".join(self._buffer)
+        if not full_text:
+            return
+
+        # If text is too long, flush the current message and start a new one
+        if len(full_text) > self._max_len:
+            # We don't want to split in the middle of a thought if we can help it,
+            # but for now, just flush the buffer.
+            await self.finalize()
+            return
+
+        try:
+            if not self._current_message:
+                self._current_message = await self._channel.send(full_text)
+                # Add the cancel reaction to the first progress message
+                try:
+                    await self._current_message.add_reaction("🛑")
+                except Exception:
+                    logger.debug("Could not add reaction to message")
+            else:
+                await self._current_message.edit(content=full_text)
+            self._last_edit_time = now
+        except Exception:
+            logger.exception("Failed to sync progress to Discord")
+
+
 class DiscordAdapter:
     """
     Channel adapter for Discord using discord.py.
 
     Listens for messages where the bot is mentioned or receives a DM,
     then routes them through ``ClawHost.handle_message()`` and sends
-    the agent's response back to the originating channel.
+    the agent's response back to the channel.
     """
 
     def __init__(self, host: ClawHost, token: str) -> None:
@@ -31,10 +101,12 @@ class DiscordAdapter:
 
         intents = discord.Intents.default()
         intents.message_content = True
+        intents.reactions = True
         self._client = discord.Client(intents=intents)
 
         self._client.event(self.on_ready)
         self._client.event(self.on_message)
+        self._client.event(self.on_reaction_add)
 
     @property
     def client(self) -> discord.Client:
@@ -52,6 +124,23 @@ class DiscordAdapter:
     async def on_ready(self) -> None:
         """Called when the bot connects to Discord."""
         logger.info("Discord adapter connected as %s", self._client.user)
+
+    async def on_reaction_add(
+        self, reaction: discord.Reaction, user: discord.User
+    ) -> None:
+        """Listen for the stop reaction to cancel an in-progress run."""
+        if user == self._client.user:
+            return
+
+        if str(reaction.emoji) == "🛑":
+            # Check if this reaction is on a message we sent
+            message = reaction.message
+            if message.author != self._client.user:
+                return
+
+            # Note: Mapping a reaction back to a lane_key is non-trivial without
+            # shared state. For now, we log the intent.
+            logger.info("Stop reaction detected on message %s", message.id)
 
     async def on_message(self, message: discord.Message) -> None:
         """Handle an incoming Discord message."""
@@ -88,35 +177,53 @@ class DiscordAdapter:
         author_id = str(message.author.id)
 
         try:
+            # Use a thread for the conversation if possible
+            target_channel: discord.abc.Messageable = message.channel
+            if (
+                not is_dm
+                and hasattr(message.channel, "create_thread")
+                and not isinstance(message.channel, discord.Thread)
+            ):
+                try:
+                    thread_name = (
+                        content[:50] + "..." if len(content) > 50 else content
+                    ) or "Agent Conversation"
+                    target_channel = await message.create_thread(
+                        name=thread_name, auto_archive_duration=60
+                    )
+                except Exception:
+                    logger.warning("Failed to create thread, falling back to channel")
+                    target_channel = message.channel
+
             await self._host.setup_default_binding(
                 protocol="discord",
                 channel_id=channel_id,
                 author_id=author_id,
             )
 
-            # Stream agent response back to the channel
-            response_parts: list[str] = []
+            tracker = ProgressTracker(target_channel)
 
-            async with message.channel.typing():
+            async with target_channel.typing():
                 async for event in self._host.handle_message(
                     text=content,
                     protocol="discord",
                     channel_id=channel_id,
                     author_id=author_id,
                 ):
-                    if event.type == EventType.TOKEN:
-                        response_parts.append(event.content)
-                    elif event.type == EventType.ERROR:
-                        response_parts.append(f"⚠️ {event.content}")
+                    if event.type in [
+                        EventType.THOUGHT,
+                        EventType.STATUS,
+                        EventType.ERROR,
+                    ]:
+                        await tracker.add_event(event.type, event.content)
+                    elif event.type == EventType.TOKEN:
+                        # Once we get a real response token, finalize the progress log
+                        await tracker.finalize()
+                        # Send token-based response in chunks
+                        for chunk in _split_message(event.content):
+                            await target_channel.send(chunk)
 
-            # Send the collected response
-            if response_parts:
-                full_response = "\n".join(response_parts)
-                # Discord has a 2000 char limit per message
-                for chunk in _split_message(full_response):
-                    await message.reply(chunk)
-            else:
-                await message.reply("_(No response from agent)_")
+            await tracker.finalize()
 
         except Exception:
             logger.exception("Error handling Discord message")

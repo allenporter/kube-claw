@@ -93,7 +93,7 @@ Run the agent as a Discord bot that responds to @mentions and DMs.
 **Run:**
 
 ```bash
-GOOGLE_API_KEY=<your-key> DISCORD_TOKEN=<bot-token> python3 script/discord_bot.py --workspace .
+GOOGLE_API_KEY=<your-key> DISCORD_TOKEN=<bot-token> python3 script/discord_bot.py --workspace /tmp/workspace/
 ```
 
 The bot will respond when @mentioned in a channel or sent a DM.
@@ -112,7 +112,7 @@ Run the agent as a GitHub bot that responds to comments on a specific PR.
 **Run:**
 
 ```bash
-GOOGLE_API_KEY=<your-key> python3 script/github_bot.py --pr <pr-number> --workspace .
+GOOGLE_API_KEY=<your-key> python3 script/github_bot.py --pr <pr-number> --workspace /tmp/workspace
 ```
 
 The bot will poll the PR for comments (every 60s by default) and respond to
