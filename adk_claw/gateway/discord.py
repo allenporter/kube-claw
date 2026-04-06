@@ -6,6 +6,8 @@ Connects a Discord bot to the adk-claw host. Listens for
 agent responses back to the channel.
 """
 
+from __future__ import annotations
+
 import logging
 import time
 
@@ -27,7 +29,10 @@ class ProgressTracker:
     """
 
     def __init__(
-        self, channel: discord.abc.Messageable, lane_key: str, adapter: "DiscordAdapter"
+        self,
+        channel: discord.abc.Messageable,
+        lane_key: str | None = None,
+        adapter: "DiscordAdapter" | None = None,
     ) -> None:
         self._channel = channel
         self._lane_key = lane_key
@@ -56,7 +61,7 @@ class ProgressTracker:
     async def finalize(self) -> None:
         """Ensure all buffered content is sent and clear the tracker."""
         await self._sync(force=True)
-        if self._current_message:
+        if self._current_message and self._adapter:
             self._adapter.clear_active_message(self._current_message.id)
             self._current_message = None
         self._buffer = []
@@ -78,20 +83,19 @@ class ProgressTracker:
                 return
 
             # Discord has a 2000-char limit for standard messages.
-            # We'll stick to 1900 to be safe.
-            max_discord_len = 1900 
+            # We'll use self._max_len so it can be overridden in tests.
+            max_discord_len = self._max_len
 
             # Handle length limits
             if len(full_text) > max_discord_len:
                 # 1. Close current message if it exists
                 if self._current_message:
                     # Clear current message first so that the next sync creates a new one
-                    self._adapter.clear_active_message(self._current_message.id)
+                    if self._adapter:
+                        self._adapter.clear_active_message(self._current_message.id)
                     self._current_message = None
 
                     # Find where to split the buffer so we don't break a markdown block too badly
-                    # For now, we'll just split at the last newline before max_discord_len
-                    # or at max_discord_len if no newline exists.
                     split_idx = full_text.rfind("\n", 0, max_discord_len)
                     if split_idx == -1:
                         split_idx = max_discord_len
@@ -99,23 +103,22 @@ class ProgressTracker:
                     # Update buffer to keep ONLY the overflow for the next message
                     remaining_text = full_text[split_idx:].strip()
                     self._buffer = [remaining_text]
-                    
+
                     # Force the next sync to happen (after debounce) by returning.
-                    # The current message was effectively "finalized" by being cleared.
                     return
                 else:
                     # No current message, but the buffer is ALREADY too long.
-                    # We must send the first chunk as a new message.
                     split_idx = full_text.rfind("\n", 0, max_discord_len)
                     if split_idx == -1:
                         split_idx = max_discord_len
-                    
+
                     chunk = full_text[:split_idx]
                     try:
                         self._current_message = await self._channel.send(chunk)
-                        self._adapter.set_active_message(
-                            self._current_message.id, self._lane_key
-                        )
+                        if self._adapter and self._lane_key:
+                            self._adapter.set_active_message(
+                                self._current_message.id, self._lane_key
+                            )
                         try:
                             await self._current_message.add_reaction("🛑")
                         except Exception:
@@ -137,7 +140,7 @@ class ProgressTracker:
                     # Update buffer to remove the chunk we just sent
                     remaining_text = full_text[split_idx:].strip()
                     self._buffer = [remaining_text]
-                    
+
                     self._last_edit_time = now
                     return
 
@@ -145,9 +148,10 @@ class ProgressTracker:
                 if not self._current_message:
                     # Send new message
                     self._current_message = await self._channel.send(full_text)
-                    self._adapter.set_active_message(
-                        self._current_message.id, self._lane_key
-                    )
+                    if self._adapter and self._lane_key:
+                        self._adapter.set_active_message(
+                            self._current_message.id, self._lane_key
+                        )
                     try:
                         await self._current_message.add_reaction("🛑")
                     except Exception:
