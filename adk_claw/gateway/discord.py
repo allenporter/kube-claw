@@ -76,19 +76,11 @@ class ProgressTracker:
             if not full_text:
                 return
 
-            # If text is too long, flush the current message and start a new one
+            # If text is too long, truncate it. 
+            # Note: 4000 characters is the hard limit for some message types, 2000 for others.
+            # We use a safe margin below 2000 to avoid Bad Request errors.
             if len(full_text) > self._max_len:
-                # To prevent infinite recursion, we don't call finalize() if we're already finalizing
-                if not is_finalizing:
-                    # Manually clear the current message state to force a new one
-                    if self._current_message:
-                        self._adapter.clear_active_message(self._current_message.id)
-                    self._current_message = None
-                    self._buffer = [full_text] # Keep the text for the new message
-                    # We'll let the next block handle sending it
-                else:
-                    # If we are finalizing and still over limit, truncate
-                    full_text = full_text[:self._max_len] + "\n... (truncated)"
+                full_text = full_text[:self._max_len] + "\n... (truncated)"
 
             try:
                 if not self._current_message:
