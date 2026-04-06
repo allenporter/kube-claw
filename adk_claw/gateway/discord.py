@@ -6,6 +6,7 @@ Connects a Discord bot to the adk-claw host. Listens for
 agent responses back to the channel.
 """
 
+from collections.abc import Callable
 import logging
 import time
 
@@ -30,7 +31,7 @@ class ProgressTracker:
         self,
         channel: discord.abc.Messageable,
         lane_key: str | None = None,
-        on_cancel: callable | None = None,
+        on_cancel: Callable | None = None,
     ) -> None:
         self._channel = channel
         self._lane_key = lane_key
@@ -138,7 +139,11 @@ class DiscordAdapter:
 
         intents = discord.Intents.default()
         intents.message_content = True
+        intents.members = True
         intents.reactions = True
+        # Explicitly enable history to ensure message objects are fully populated
+        intents.value |= 1 << 16
+
         self._client = discord.Client(intents=intents)
 
         self._client.event(self.on_ready)
@@ -168,42 +173,65 @@ class DiscordAdapter:
         logger.info("Discord adapter connected as %s", self._client.user)
 
     async def on_reaction_add(
-        self, reaction: discord.Reaction, user: discord.User
+        self, reaction: discord.Reaction, user: discord.User | discord.Member
     ) -> None:
         """Listen for the stop reaction to cancel an in-progress run."""
-        logger.info(f"DEBUG: Reaction added: {reaction.emoji} by {user.name} on message {reaction.message.id}")
-        
         if user == self._client.user:
             return
 
-        if str(reaction.emoji) == "🛑":
-            # Check if this reaction is on a message we sent
-            message = reaction.message
-            author_name = message.author.name if message.author else "Unknown"
-            logger.info(f"DEBUG: 🛑 reaction on message by {author_name} (Client user: {self._client.user.name})")
-            
-            if message.author != self._client.user:
-                logger.info("DEBUG: 🛑 ignored (not our message)")
-                return
+        emoji = str(reaction.emoji)
+        message = reaction.message
+        message_id = message.id
 
-            # Check if this message is linked to an active lane
-            lane_key = self._message_to_lane.get(message.id)
-            logger.info(f"DEBUG: Message {message.id} mapped to lane: {lane_key}")
-            
+        # Log all reactions at INFO level for now to debug
+        logger.info(
+            "REACTION: %s by %s (%s) on message %s (Author: %s)",
+            emoji,
+            user.name,
+            user.id,
+            message_id,
+            message.author.name if message.author else "Unknown",
+        )
+
+        if emoji == "🛑":
+            # 1. Primary Lookup: Direct mapping (bot's progress message)
+            lane_key = self._message_to_lane.get(message_id)
+
+            # 2. Secondary Lookup: Thread context (reaction on ANY message in the thread)
+            if not lane_key and isinstance(message.channel, discord.Thread):
+                logger.info(
+                    "DEBUG: 🛑 on thread, checking lane mapping for thread ID %s",
+                    message.channel.id,
+                )
+                # We need a way to link the thread back to the lane.
+                # Since lane_key is protocol:channel_id:author_id, and channel_id is the thread ID...
+                # Let's try to find a lane that ends with this channel_id.
+                thread_id_str = str(message.channel.id)
+                for lk in self._lane_to_tracker.keys():
+                    if f":{thread_id_str}:" in lk or lk.endswith(f":{thread_id_str}"):
+                        lane_key = lk
+                        logger.info("DEBUG: Found lane %s via thread context", lane_key)
+                        break
+
             if lane_key:
-                logger.info(f"🛑 Cancellation requested via Discord on lane {lane_key}")
-                # Signal the host to stop
+                logger.info(
+                    "🛑 Cancellation requested via Discord on lane %s", lane_key
+                )
                 await self._host.cancel_run(lane_key)
 
-                # Update the tracker to show interruption feedback
+                # Visual feedback: Ack the stop reaction with a checkmark
+                try:
+                    await reaction.message.add_reaction("✅")
+                except Exception:
+                    pass
+
                 tracker = self._lane_to_tracker.get(lane_key)
                 if tracker:
                     await tracker.interrupt()
 
-                # Cleanup mapping
-                self._message_to_lane.pop(message.id, None)
+                self._message_to_lane.pop(message_id, None)
             else:
-                logger.debug(f"Stop reaction on unmapped message {message.id}")
+                logger.debug("Stop reaction on unmapped message %s", message_id)
 
     async def on_message(self, message: discord.Message) -> None:
         """Handle an incoming Discord message."""
