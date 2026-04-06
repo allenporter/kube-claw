@@ -1,25 +1,22 @@
 """
 Workspace initialization for adk-claw.
 
-Automatically sets up a workspace with a git repository and starter
-Markdown files for agent guidance and memory.
+Automatically sets up the Tier 1 Global Brain and Tier 2 Session Workspaces.
 """
 
 import logging
-import subprocess
 from pathlib import Path
 from importlib import resources
 
+from adk_claw.config import GLOBAL_CONFIG_DIR
+
 logger = logging.getLogger(__name__)
 
-INSTRUCTION_MARKERS = [
-    "AGENTS.md",
+GLOBAL_INSTRUCTION_MARKERS = [
     "SOUL.md",
     "IDENTITY.md",
     "USER.md",
-    "TOOLS.md",
     "HEARTBEAT.md",
-    "BOOTSTRAP.md",
     "MEMORY.md",
 ]
 
@@ -27,7 +24,6 @@ INSTRUCTION_MARKERS = [
 def _get_starter_content(filename: str) -> str:
     """Helper to load starter content from the resources directory."""
     try:
-        # Use modern importlib.resources.files (Python 3.9+)
         resource_path = resources.files("adk_claw.resources.starter_files").joinpath(
             filename
         )
@@ -37,82 +33,98 @@ def _get_starter_content(filename: str) -> str:
         return ""
 
 
-def initialize_workspace(project_root: Path) -> None:
+def initialize_global_brain() -> None:
     """
-    Sets up the workspace with git and starter files.
+    Bootstraps the Global Brain (Tier 1) at ~/.adk-claw/.
     """
-    logger.info(f"Initializing workspace at {project_root}")
+    GLOBAL_CONFIG_DIR.mkdir(parents=True, exist_ok=True)
 
-    # 1. Git initialization
-    if not (project_root / ".git").exists():
-        try:
-            logger.info("Initializing git repository...")
-            subprocess.run(
-                ["git", "init"], cwd=project_root, check=True, capture_output=True
-            )
-        except Exception as e:
-            logger.warning(f"Failed to initialize git: {e}")
+    # Global memory/ directory
+    memory_dir = GLOBAL_CONFIG_DIR / "memory"
+    memory_dir.mkdir(parents=True, exist_ok=True)
 
-    # 2. .adk directory
-    adk_dir = project_root / ".adk"
-    is_new_adk = not adk_dir.exists()
-    adk_dir.mkdir(parents=True, exist_ok=True)
-
-    # 3. Starter files
-    for filename in INSTRUCTION_MARKERS:
-        if filename in ["BOOTSTRAP.md", "MEMORY.md"]:
+    for filename in GLOBAL_INSTRUCTION_MARKERS:
+        if filename == "MEMORY.md":
             continue
 
-        file_path = project_root / filename
+        file_path = GLOBAL_CONFIG_DIR / filename
         if not file_path.exists():
             content = _get_starter_content(filename)
             if content:
                 try:
                     file_path.write_text(content, encoding="utf-8")
-                    logger.debug(f"Created {filename}")
+                    logger.debug(f"Created global {filename}")
                 except Exception as e:
                     logger.warning(f"Failed to create {filename}: {e}")
 
-    # 4. memory/ directory
-    memory_dir = project_root / "memory"
-    if not memory_dir.exists():
-        try:
-            memory_dir.mkdir(parents=True, exist_ok=True)
-            logger.info("Created memory/ directory")
-        except Exception as e:
-            logger.warning(f"Failed to create memory directory: {e}")
 
-    # 5. BOOTSTRAP.md (only on brand new .adk)
-    bootstrap_path = project_root / "BOOTSTRAP.md"
-    if is_new_adk and not bootstrap_path.exists():
+def initialize_session_workspace(workspace_path: Path) -> None:
+    """
+    Bootstraps the Session Workspace (Tier 2).
+    """
+    logger.info(f"Initializing session workspace at {workspace_path}")
+    workspace_path.mkdir(parents=True, exist_ok=True)
+
+    # Create the src/ directory for Tier 3 projects
+    src_dir = workspace_path / "src"
+    src_dir.mkdir(parents=True, exist_ok=True)
+
+    # Bootstraps the empty SESSION.md scratchpad
+    session_file = workspace_path / "SESSION.md"
+    if not session_file.exists():
         try:
-            bootstrap_path.write_text(
-                "# Welcome to your new workspace!\n\nThis is a brand new project setup. "
-                "Explore the files and start building.\n",
+            session_file.write_text(
+                "# Session Context\n\nActive scratchpad for this session.\n",
                 encoding="utf-8",
             )
-            logger.info("Created BOOTSTRAP.md")
+            logger.debug("Created SESSION.md scratchpad")
         except Exception as e:
-            logger.warning(f"Failed to create BOOTSTRAP.md: {e}")
+            logger.warning(f"Failed to create SESSION.md: {e}")
 
 
 def assemble_instructions(workspace_path: Path) -> str:
     """
-    Loads and assembles system instructions from priority-ordered markers.
+    Loads and assembles system instructions from Tier 1 (Global) and Tier 2 (Session).
     """
     project_instructions = []
-    for marker in INSTRUCTION_MARKERS:
-        marker_path = workspace_path / marker
+
+    # 1. Load Tier 1 Global Persona and Memory
+    for marker in GLOBAL_INSTRUCTION_MARKERS:
+        marker_path = GLOBAL_CONFIG_DIR / marker
         if marker_path.exists():
             try:
-                # Add a descriptive header for each injected file
                 content = marker_path.read_text(encoding="utf-8").strip()
                 if content:
-                    project_instructions.append(f"\n--- From {marker} ---\n{content}")
+                    project_instructions.append(
+                        f"\n--- From Global {marker} ---\n{content}"
+                    )
             except Exception as e:
                 logger.warning("Failed to read %s: %s", marker, e)
 
-    return "\n\n## Project-Specific Instructions\n" + "\n".join(project_instructions)
+    # 2. Load Tier 2 Session Scratchpad
+    session_path = workspace_path / "SESSION.md"
+    if session_path.exists():
+        try:
+            content = session_path.read_text(encoding="utf-8").strip()
+            if content:
+                project_instructions.append(
+                    f"\n--- From Session SESSION.md ---\n{content}"
+                )
+        except Exception as e:
+            logger.warning("Failed to read session cache: %s", e)
+
+    # 3. Load Project-specific Agents/Tools if they exist at workspace root
+    for marker in ["AGENTS.md", "TOOLS.md"]:
+        marker_path = workspace_path / marker
+        if marker_path.exists():
+            try:
+                content = marker_path.read_text(encoding="utf-8").strip()
+                if content:
+                    project_instructions.append(f"\n--- From {marker} ---\n{content}")
+            except Exception:
+                pass
+
+    return "\n\n## System Instructions\n" + "\n".join(project_instructions)
 
 
 def get_subagent_instructions(workspace_path: Path) -> str:
@@ -120,8 +132,22 @@ def get_subagent_instructions(workspace_path: Path) -> str:
     Returns a slim instruction set for subagents.
     """
     project_instructions = []
-    # Subagents only get AGENTS.md and TOOLS.md for specialized focus
-    subagent_markers = ["AGENTS.md", "TOOLS.md"]
+
+    # Subagents keep the global identity
+    for marker in ["SOUL.md", "IDENTITY.md"]:
+        marker_path = GLOBAL_CONFIG_DIR / marker
+        if marker_path.exists():
+            try:
+                content = marker_path.read_text(encoding="utf-8").strip()
+                if content:
+                    project_instructions.append(
+                        f"\n--- From Global {marker} ---\n{content}"
+                    )
+            except Exception:
+                pass
+
+    # Subagents get AGENTS.md and TOOLS.md for specialized focus from workspace
+    subagent_markers = ["AGENTS.md", "TOOLS.md", "SESSION.md"]
     for marker in subagent_markers:
         marker_path = workspace_path / marker
         if marker_path.exists():

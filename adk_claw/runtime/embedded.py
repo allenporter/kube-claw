@@ -20,7 +20,11 @@ from adk_coder.summarize import summarize_tool_call
 from adk_claw.domain.models import EventType, OrchestratorEvent
 from adk_claw.memory import load_memory_context
 from adk_claw.runtime.mcp_support import McpSupport
-from adk_claw.workspace_init import initialize_workspace, assemble_instructions
+from adk_claw.workspace_init import (
+    initialize_global_brain,
+    initialize_session_workspace,
+    assemble_instructions,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -76,8 +80,9 @@ class EmbeddedRuntime:
                 # Gather all extra tools from MCP
                 extra_tools = list(mcp_args.get("extra_tools") or [])
 
-                # Initialize Workspace (Git, Starter Files)
-                initialize_workspace(ws)
+                # Initialize Tier 1 Global Brain and Tier 2 Session Workspace
+                initialize_global_brain()
+                initialize_session_workspace(ws)
 
                 # Load Memory Guidance
                 memory_guidance = await load_memory_context(ws)
