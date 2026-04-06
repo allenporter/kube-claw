@@ -26,13 +26,34 @@ class ProgressTracker:
     and debouncing edits to avoid rate-limiting.
     """
 
-    def __init__(self, channel: discord.abc.Messageable) -> None:
+    def __init__(
+        self,
+        channel: discord.abc.Messageable,
+        lane_key: str | None = None,
+        on_cancel: callable | None = None,
+    ) -> None:
         self._channel = channel
+        self._lane_key = lane_key
+        self._on_cancel = on_cancel
         self._current_message: discord.Message | None = None
         self._buffer: list[str] = []
         self._last_edit_time = 0.0
         self._edit_debounce = 1.0  # seconds
         self._max_len = 1900  # Leave room for formatting
+        self._is_syncing = False
+        self._interrupted = False
+
+    @property
+    def current_message_id(self) -> int | None:
+        """The ID of the current progress message."""
+        return self._current_message.id if self._current_message else None
+
+    async def interrupt(self) -> None:
+        """Mark the tracker as interrupted and update the message."""
+        self._interrupted = True
+        prefix = "🛑 **Interruption requested...**"
+        self._buffer.append(prefix)
+        await self._sync(force=True)
 
     async def add_event(self, event_type: EventType, content: str) -> None:
         """Add an event (thought, status, or token) to the tracker."""
@@ -56,6 +77,9 @@ class ProgressTracker:
 
     async def _sync(self, force: bool = False, is_finalizing: bool = False) -> None:
         """Sync the buffer to Discord, creating or editing messages as needed."""
+        if self._is_syncing:
+            return
+
         now = time.time()
         if not force and (now - self._last_edit_time < self._edit_debounce):
             return
@@ -68,9 +92,14 @@ class ProgressTracker:
         if len(full_text) > self._max_len:
             # Prevent infinite recursion if we're already finalizing
             if not is_finalizing:
-                await self.finalize()
+                self._is_syncing = True
+                try:
+                    await self.finalize()
+                finally:
+                    self._is_syncing = False
             return
 
+        self._is_syncing = True
         try:
             if not self._current_message:
                 self._current_message = await self._channel.send(full_text)
@@ -79,11 +108,17 @@ class ProgressTracker:
                     await self._current_message.add_reaction("🛑")
                 except Exception:
                     logger.debug("Could not add reaction to message")
+
+                # If this message belongs to a lane, notify the adapter
+                if self._lane_key and self._on_cancel:
+                    await self._on_cancel(self._current_message.id, self._lane_key)
             else:
                 await self._current_message.edit(content=full_text)
             self._last_edit_time = now
         except Exception:
             logger.exception("Failed to sync progress to Discord")
+        finally:
+            self._is_syncing = False
 
 
 class DiscordAdapter:
@@ -98,6 +133,8 @@ class DiscordAdapter:
     def __init__(self, host: ClawHost, token: str) -> None:
         self._host = host
         self._token = token
+        self._message_to_lane: dict[int, str] = {}
+        self._lane_to_tracker: dict[str, ProgressTracker] = {}
 
         intents = discord.Intents.default()
         intents.message_content = True
@@ -107,6 +144,11 @@ class DiscordAdapter:
         self._client.event(self.on_ready)
         self._client.event(self.on_message)
         self._client.event(self.on_reaction_add)
+
+    async def _register_tracker(self, message_id: int, lane_key: str) -> None:
+        """Link a progress message to its execution lane for cancellation."""
+        self._message_to_lane[message_id] = lane_key
+        logger.debug(f"Registered message {message_id} to lane {lane_key}")
 
     @property
     def client(self) -> discord.Client:
@@ -138,9 +180,22 @@ class DiscordAdapter:
             if message.author != self._client.user:
                 return
 
-            # Note: Mapping a reaction back to a lane_key is non-trivial without
-            # shared state. For now, we log the intent.
-            logger.info("Stop reaction detected on message %s", message.id)
+            # Check if this message is linked to an active lane
+            lane_key = self._message_to_lane.get(message.id)
+            if lane_key:
+                logger.info(f"🛑 Cancellation requested via Discord on lane {lane_key}")
+                # Signal the host to stop
+                await self._host.cancel_run(lane_key)
+
+                # Update the tracker to show interruption feedback
+                tracker = self._lane_to_tracker.get(lane_key)
+                if tracker:
+                    await tracker.interrupt()
+
+                # Cleanup mapping
+                self._message_to_lane.pop(message.id, None)
+            else:
+                logger.debug(f"Stop reaction on unmapped message {message.id}")
 
     async def on_message(self, message: discord.Message) -> None:
         """Handle an incoming Discord message."""
@@ -201,7 +256,15 @@ class DiscordAdapter:
                 author_id=author_id,
             )
 
-            tracker = ProgressTracker(target_channel)
+            # Generate the lane key for this session
+            lane_key = f"discord:{channel_id}:{author_id}"
+
+            tracker = ProgressTracker(
+                target_channel,
+                lane_key=lane_key,
+                on_cancel=self._register_tracker,
+            )
+            self._lane_to_tracker[lane_key] = tracker
 
             async with target_channel.typing():
                 async for event in self._host.handle_message(
@@ -224,6 +287,7 @@ class DiscordAdapter:
                             await target_channel.send(chunk)
 
             await tracker.finalize()
+            self._lane_to_tracker.pop(lane_key, None)
 
         except Exception:
             logger.exception("Error handling Discord message")
