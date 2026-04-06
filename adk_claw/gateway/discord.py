@@ -26,7 +26,9 @@ class ProgressTracker:
     and debouncing edits to avoid rate-limiting.
     """
 
-    def __init__(self, channel: discord.abc.Messageable, lane_key: str, adapter: "DiscordAdapter") -> None:
+    def __init__(
+        self, channel: discord.abc.Messageable, lane_key: str, adapter: "DiscordAdapter"
+    ) -> None:
         self._channel = channel
         self._lane_key = lane_key
         self._adapter = adapter
@@ -38,7 +40,6 @@ class ProgressTracker:
 
     async def add_event(self, event_type: EventType, content: str) -> None:
         """Add an event (thought, status, or token) to the tracker."""
-        prefix = ""
         if event_type == EventType.THOUGHT:
             # Use blockquote for thoughts
             lines = content.splitlines()
@@ -49,7 +50,7 @@ class ProgressTracker:
             self._buffer.append(f"`{content}`")
         elif event_type == EventType.ERROR:
             self._buffer.append(f"⚠️ **Error:** {content}")
-        
+
         await self._sync()
 
     async def finalize(self) -> None:
@@ -66,7 +67,7 @@ class ProgressTracker:
         if getattr(self, "_is_syncing", False):
             return
         self._is_syncing = True
-        
+
         try:
             now = time.time()
             if not force and (now - self._last_edit_time < self._edit_debounce):
@@ -76,16 +77,34 @@ class ProgressTracker:
             if not full_text:
                 return
 
-            # If text is too long, truncate it. 
-            # Note: 4000 characters is the hard limit for some message types, 2000 for others.
-            # We use a safe margin below 2000 to avoid Bad Request errors.
+            # If text is too long, we must split it or truncate it.
+            # For progress tracking, if it's too long for a single edit,
+            # it's usually better to start a new progress message.
             if len(full_text) > self._max_len:
-                full_text = full_text[:self._max_len] + "\n... (truncated)"
+                # Close out the current message with truncation notice
+                truncated_text = (
+                    full_text[: self._max_len] + "\n... (continued in next message)"
+                )
+                if self._current_message:
+                    try:
+                        await self._current_message.edit(content=truncated_text)
+                    except Exception:
+                        logger.warning("Failed to edit message for truncation")
+                    self._adapter.clear_active_message(self._current_message.id)
+                    self._current_message = None
+
+                # Update buffer to only include what hasn't been sent yet
+                # This is a bit tricky since we're appending.
+                # Let's just start a fresh message for the overflow.
+                self._buffer = [full_text[self._max_len :]]
+                full_text = "\n".join(self._buffer)
 
             try:
                 if not self._current_message:
                     self._current_message = await self._channel.send(full_text)
-                    self._adapter.set_active_message(self._current_message.id, self._lane_key)
+                    self._adapter.set_active_message(
+                        self._current_message.id, self._lane_key
+                    )
                     # Add the cancel reaction to the first progress message
                     try:
                         await self._current_message.add_reaction("🛑")
@@ -94,6 +113,18 @@ class ProgressTracker:
                 else:
                     await self._current_message.edit(content=full_text)
                 self._last_edit_time = now
+            except discord.errors.HTTPException as e:
+                if e.code == 50035:  # Invalid Form Body (likely too long)
+                    logger.warning(
+                        "Discord message too long, clearing current message to start fresh"
+                    )
+                    self._current_message = None
+                    # Try once more by sending as a new message
+                    self._current_message = await self._channel.send(
+                        full_text[: self._max_len]
+                    )
+                else:
+                    raise
             except Exception:
                 logger.exception("Failed to sync progress to Discord")
         finally:
@@ -162,29 +193,14 @@ class DiscordAdapter:
                 return
 
             # Determine the lane key for this message
-            channel_id = str(message.channel.id)
-            # In Discord, if it's a thread, the lane is still tied to the original
-            # channel or the thread itself?
-            # handle_message used the original message.channel.id.
-            # If target_channel is a thread, message.channel.id is the thread ID.
-            # We need to match what handle_message used.
-
-            # Wait, handle_message is called with channel_id=str(message.channel.id)
-            # where 'message' is the triggering message.
-            # Then it might create a thread 'target_channel'.
-            # The ProgressTracker uses 'target_channel'.
-            # So the 🛑 reaction is on a message in 'target_channel'.
-
-            # We need a way to map target_channel.id back to the lane_key.
-            # Since lane_key = f"{protocol}:{channel_id}:{author_id}"
-            # and ProgressTracker is per-run, we can store this mapping.
-            
             lane_key = self._get_lane_for_message(message.id)
             if lane_key:
                 logger.info("Cancelling run for lane %s via 🛑 reaction", lane_key)
                 await self._host.cancel_run(lane_key)
             else:
-                logger.warning("Stop reaction on message %s, but no active lane found", message.id)
+                logger.warning(
+                    "Stop reaction on message %s, but no active lane found", message.id
+                )
 
     def _get_lane_for_message(self, message_id: int) -> str | None:
         """Find the active lane key associated with a progress message."""

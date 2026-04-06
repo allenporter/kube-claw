@@ -25,6 +25,8 @@ from adk_claw.domain.models import (
 )
 from adk_claw.runtime import Runtime
 from adk_claw.runtime.embedded import EmbeddedRuntime
+from adk_claw.host.queue.manager import QueueManager
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +54,7 @@ class ClawHost:
             permission_mode=self._config.agent.permission_mode,
         )
         self._workspace_path = workspace_path
-        self._active_runs: dict[str, bool] = {}
+        self._queue_manager = QueueManager(execute_fn=self._execute_message)
 
     @property
     def config(self) -> ClawConfig:
@@ -87,15 +89,32 @@ class ClawHost:
         channel_id: str = "local",
         author_id: str = "dev",
     ) -> AsyncIterator[OrchestratorEvent]:
-        """Send a message through the full pipeline: resolve → execute → stream."""
+        """Route message through the sequential lane queue."""
         identity = ClawIdentity(protocol=protocol, author_id=author_id)
         message = InboundMessage(
             identity=identity,
             channel_id=channel_id,
             content=text,
         )
-
         lane_key = message.lane_id
+
+        async for event in self._queue_manager.handle_message(
+            lane_key=lane_key, text=text
+        ):
+            yield event
+
+    async def _execute_message(
+        self, text: str, lane_key: str, **kwargs: Any
+    ) -> AsyncIterator[OrchestratorEvent]:
+        """Execute a message turn, resolving workspace and config."""
+        # Split lane_key back into protocol, channel_id, author_id
+        # lane_id is f"{self.identity.protocol}:{self.channel_id}:{self.identity.author_id}"
+        parts = lane_key.split(":")
+        if len(parts) != 3:
+            # Fallback for unexpected lane keys
+            protocol, channel_id, author_id = "unknown", "unknown", "unknown"
+        else:
+            protocol, channel_id, author_id = parts
 
         # Resolve workspace
         context = await self._binding_table.resolve_workspace(
@@ -108,36 +127,25 @@ class ClawHost:
         ws_config = load_config(workspace_path=ws)
 
         logger.info(
-            f"Handling message for lane={lane_key}, workspace={workspace_path}, "
-            f"env_keys={list(ws_config.agent.env.keys())}"
+            f"Executing message for lane={lane_key}, workspace={workspace_path}"
         )
 
         # Execute via runtime
-        self._active_runs[lane_key] = True
-        session_id = lane_key
-
-        try:
-            async for event in self._runtime.execute(
-                workspace_path=workspace_path,
-                message=text,
-                lane_key=lane_key,
-                session_id=session_id,
-                env=ws_config.agent.env,
-                mcp=ws_config.mcp_servers,
-            ):
-                if not self._active_runs.get(lane_key, False):
-                    logger.info(f"Run cancelled for lane {lane_key}")
-                    break
-                yield event
-        finally:
-            self._active_runs.pop(lane_key, None)
+        async for event in self._runtime.execute(
+            workspace_path=workspace_path,
+            message=text,
+            lane_key=lane_key,
+            session_id=lane_key,
+            env=ws_config.agent.env,
+            mcp=ws_config.mcp_servers,
+        ):
+            yield event
 
     async def cancel_run(self, lane_key: str) -> None:
         """Cancel an in-progress agent run."""
-        if lane_key in self._active_runs:
-            self._active_runs[lane_key] = False
-            logger.info(f"Cancellation requested for lane {lane_key}")
+        self._queue_manager.cancel_run(lane_key)
 
     async def shutdown(self) -> None:
         """Clean up resources."""
+        await self._queue_manager.shutdown()
         logger.info("Host shutdown complete.")

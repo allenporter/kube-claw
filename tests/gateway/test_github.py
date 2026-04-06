@@ -40,13 +40,16 @@ async def test_github_adapter_poll_review_comment():
         ],
     }
 
-    with patch("asyncio.create_subprocess_exec") as mock_exec, patch(
-        "subprocess.run"
-    ) as mock_run:
+    with (
+        patch("asyncio.create_subprocess_exec") as mock_exec,
+        patch("subprocess.run") as mock_run,
+    ):
         # Mock repo info
         mock_run_result = MagicMock()
         mock_run_result.returncode = 0
-        mock_run_result.stdout = json.dumps({"owner": {"login": "owner"}, "name": "repo"})
+        mock_run_result.stdout = json.dumps(
+            {"owner": {"login": "owner"}, "name": "repo"}
+        )
         mock_run.return_value = mock_run_result
 
         # Mock for gh pr view

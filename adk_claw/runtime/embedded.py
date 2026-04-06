@@ -45,7 +45,6 @@ class EmbeddedRuntime:
     ) -> None:
         self._model = model
         self._permission_mode = permission_mode
-        self._runners: dict[str, Any] = {}
 
     async def execute(
         self,
@@ -73,35 +72,31 @@ class EmbeddedRuntime:
         os.chdir(ws)
 
         try:
-            runner = self._runners.get(session_id)
-            if not runner:
-                logger.info(f"Building new runner for session {session_id}")
+            # Rebuild runner for each execution to ensure fresh session state
+            # and avoid last_update_time (stale session) errors.
+            logger.info(f"Building fresh runner for session {session_id}")
 
-                # Gather all extra tools from MCP
-                extra_tools = list(mcp_args.get("extra_tools") or [])
+            # Gather all extra tools from MCP
+            extra_tools = list(mcp_args.get("extra_tools") or [])
 
-                # Initialize Tier 1 Global Brain and Tier 2 Session Workspace
-                initialize_global_brain()
-                initialize_session_workspace(ws)
+            # Initialize Tier 1 Global Brain and Tier 2 Session Workspace
+            initialize_global_brain()
+            initialize_session_workspace(ws)
 
-                # Load Memory Guidance
-                memory_guidance = await load_memory_context(ws)
-                # Load Systemic Instructions (SOUL.md, USER.md, etc.)
-                systemic_instructions = assemble_instructions(ws)
+            # Load Memory Guidance
+            memory_guidance = await load_memory_context(ws)
+            # Load Systemic Instructions (SOUL.md, USER.md, etc.)
+            systemic_instructions = assemble_instructions(ws)
 
-                final_instruction = memory_guidance + systemic_instructions
+            final_instruction = memory_guidance + systemic_instructions
 
-                runner = build_runner(
-                    model=self._model,
-                    permission_mode=self._permission_mode,
-                    workspace_path=ws,
-                    extra_tools=extra_tools,
-                    instruction=final_instruction,
-                )
-
-                self._runners[session_id] = runner
-            else:
-                logger.debug(f"Reusing cached runner for session {session_id}")
+            runner = build_runner(
+                model=self._model,
+                permission_mode=self._permission_mode,
+                workspace_path=ws,
+                extra_tools=extra_tools,
+                instruction=final_instruction,
+            )
 
             project_root = find_project_root(ws)
             user_id = get_project_id(project_root)

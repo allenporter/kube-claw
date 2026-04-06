@@ -94,7 +94,7 @@ class LaneQueue:
                             logger.info(f"LaneQueue[{self.lane_key}] cancelling run")
                             break
                         await event_out.put(event)
-                except Exception as e:
+                except Exception:
                     logger.exception(f"Error in LaneQueue[{self.lane_key}] execution")
                     # Optionally yield an error event here if the execute_fn didn't catch it
                 finally:
