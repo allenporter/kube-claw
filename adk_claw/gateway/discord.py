@@ -171,17 +171,25 @@ class DiscordAdapter:
         self, reaction: discord.Reaction, user: discord.User
     ) -> None:
         """Listen for the stop reaction to cancel an in-progress run."""
+        logger.info(f"DEBUG: Reaction added: {reaction.emoji} by {user.name} on message {reaction.message.id}")
+        
         if user == self._client.user:
             return
 
         if str(reaction.emoji) == "🛑":
             # Check if this reaction is on a message we sent
             message = reaction.message
+            author_name = message.author.name if message.author else "Unknown"
+            logger.info(f"DEBUG: 🛑 reaction on message by {author_name} (Client user: {self._client.user.name})")
+            
             if message.author != self._client.user:
+                logger.info("DEBUG: 🛑 ignored (not our message)")
                 return
 
             # Check if this message is linked to an active lane
             lane_key = self._message_to_lane.get(message.id)
+            logger.info(f"DEBUG: Message {message.id} mapped to lane: {lane_key}")
+            
             if lane_key:
                 logger.info(f"🛑 Cancellation requested via Discord on lane {lane_key}")
                 # Signal the host to stop
