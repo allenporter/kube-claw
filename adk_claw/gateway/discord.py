@@ -50,11 +50,11 @@ class ProgressTracker:
 
     async def finalize(self) -> None:
         """Ensure all buffered content is sent and clear the tracker."""
-        await self._sync(force=True)
+        await self._sync(force=True, is_finalizing=True)
         self._current_message = None
         self._buffer = []
 
-    async def _sync(self, force: bool = False) -> None:
+    async def _sync(self, force: bool = False, is_finalizing: bool = False) -> None:
         """Sync the buffer to Discord, creating or editing messages as needed."""
         now = time.time()
         if not force and (now - self._last_edit_time < self._edit_debounce):
@@ -66,9 +66,9 @@ class ProgressTracker:
 
         # If text is too long, flush the current message and start a new one
         if len(full_text) > self._max_len:
-            # We don't want to split in the middle of a thought if we can help it,
-            # but for now, just flush the buffer.
-            await self.finalize()
+            # Prevent infinite recursion if we're already finalizing
+            if not is_finalizing:
+                await self.finalize()
             return
 
         try:
